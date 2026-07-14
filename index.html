@@ -370,7 +370,6 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
           <label>Motif *</label>
           <input id="abs-motif" placeholder="Indiquez le motif de votre absence…" maxlength="120">
         </div>
-        <div class="field"><label>Précisions (optionnel)</label><textarea id="abs-detail" placeholder="Informations complémentaires…" rows="3"></textarea></div>
         <button class="btn btn-primary btn-full" onclick="soumettreAbsence()" style="margin-top:6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           Soumettre ma déclaration
@@ -944,7 +943,7 @@ async function soumettreAbsence() {
     syncBadge("⏳ Envoi…","#5D8AA8");
     const payload={
       agent_nom:nom, date_debut:debut, date_fin:fin,
-      motif, detail:document.getElementById("abs-detail").value.trim()||null,
+      motif,
       statut:"En attente"
     };
     const r=await fetch(SB_URL+"/rest/v1/absences",{
@@ -954,7 +953,7 @@ async function soumettreAbsence() {
     });
     if(!r.ok){const txt=await r.text();throw new Error(txt);}
     toast("✓ Absence déclarée avec succès !");
-    ["abs-nom","abs-debut","abs-fin","abs-detail"].forEach(id=>{
+    ["abs-nom","abs-debut","abs-fin"].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value="";
     });
     document.getElementById("abs-motif").value="";
@@ -1094,7 +1093,7 @@ async function soumettreAbsence() {
     syncBadge("⏳ Envoi…","#5D8AA8");
     const payload={
       agent_nom:nom, date_debut:debut, date_fin:fin,
-      motif, detail:document.getElementById("abs-detail").value.trim()||null,
+      motif,
       statut:"En attente"
     };
     const r=await fetch(SB_URL+"/rest/v1/absences",{
@@ -1104,7 +1103,7 @@ async function soumettreAbsence() {
     });
     if(!r.ok){const txt=await r.text();throw new Error(txt);}
     toast("✓ Absence déclarée avec succès !");
-    ["abs-nom","abs-debut","abs-fin","abs-detail"].forEach(id=>{
+    ["abs-nom","abs-debut","abs-fin"].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value="";
     });
     document.getElementById("abs-motif").value="";
