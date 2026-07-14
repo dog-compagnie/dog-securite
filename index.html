@@ -281,6 +281,10 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
           <span class="role-icon">👔</span>
           <span class="role-name">PDG</span>
         </button>
+        <button class="role-btn" onclick="selectRole('admin')" id="role-admin" style="grid-column:1 / -1;flex-direction:row;justify-content:center;gap:10px;padding:12px;border-style:dashed;opacity:0.85;">
+          <span class="role-icon" style="font-size:18px;">🔧</span>
+          <span class="role-name">Admin</span>
+        </button>
       </div>
 
     </div>
@@ -495,6 +499,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
               <select id="ac-role">
                 <option value="agent">Agent de sécurité</option>
                 <option value="responsable">Responsable de service</option>
+                <option value="pdg">PDG</option>
               </select>
             </div>
             <div class="field">
@@ -527,84 +532,6 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     <div id="candidatures-list"></div>
   </div>
 
-  <!-- PAGE SERVICE (agent) -->
-  <div class="page" id="page-service">
-    <div class="page-title">Mon <span>service</span></div>
-    <div class="page-sub" id="service-agent-sub">Gérez votre prise et fin de service.</div>
-    <div style="max-width:400px;">
-      <div class="card">
-        <div class="card-hdr"><div class="card-hdr-title">⏱ Chronomètre de service</div></div>
-        <div class="card-body" style="text-align:center;">
-          <div class="service-info" id="service-info" style="display:none;">
-            <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Service en cours depuis</div>
-            <div class="service-timer" id="service-timer">00:00:00</div>
-            <div style="font-size:11px;color:var(--text2);" id="service-start-label"></div>
-          </div>
-          <div id="service-no-info" style="color:var(--text3);font-size:13px;padding:20px 0;">
-            <div style="font-size:36px;margin-bottom:8px;">💤</div>
-            Vous n'êtes pas en service.
-          </div>
-          <button class="service-btn service-btn-start" id="btn-prendre-service" onclick="prendreService()" style="display:none;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Prendre mon service
-          </button>
-          <button class="service-btn service-btn-end" id="btn-fin-service" onclick="finService()" style="display:none;margin-top:10px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
-            Terminer mon service
-          </button>
-        </div>
-      </div>
-      <div class="card" id="my-logs-card">
-        <div class="card-hdr"><div class="card-hdr-title">📋 Mes derniers services</div></div>
-        <div class="card-body" id="my-logs-list" style="padding:12px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PAGE LOGS (PDG/Responsable) -->
-  <div class="page" id="page-logs">
-    <div class="page-title">Logs de <span>service</span></div>
-    <div class="page-sub">Historique de toutes les prises et fins de service des agents.</div>
-    <div class="stats-bar" id="logs-stats"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="logs-filter-bar"></div>
-    <div id="logs-list"></div>
-  </div>
-
-  <!-- PAGE ADMIN COMPTES (PDG uniquement) -->
-  <div class="page" id="page-admin">
-    <div class="page-title">Gestion des <span>comptes</span></div>
-    <div class="page-sub">Créez et gérez les comptes individuels avec leur PIN.</div>
-    <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;max-width:900px;">
-      <div>
-        <div class="card">
-          <div class="card-hdr"><div class="card-hdr-title">➕ Créer un compte</div></div>
-          <div class="card-body">
-            <div class="field-row-2">
-              <div class="field"><label>Nom complet *</label><input id="admin-nom" placeholder="Prénom NOM"></div>
-              <div class="field"><label>Rôle *</label>
-                <select id="admin-role">
-                  <option value="agent">Agent de sécurité</option>
-                  <option value="responsable">Responsable de service</option>
-                </select>
-              </div>
-            </div>
-            <div class="field"><label>Code PIN (4 chiffres) *</label><input id="admin-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-            <button class="btn btn-success btn-full" onclick="creerCompte()" style="margin-top:6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Créer le compte
-            </button>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <div class="card-hdr"><div class="card-hdr-title">👥 Comptes existants</div></div>
-          <div class="card-body" style="padding:12px;" id="comptes-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -635,9 +562,9 @@ let _refreshInterval = null;
 let _timerInterval = null;
 let _serviceDebut = null; // timestamp ISO du service en cours
 
-const ROLE_LABELS = {agent:"Agent de sécurité", responsable:"Responsable de service", pdg:"PDG", candidat:"Candidat"};
-const ROLE_COLORS = {agent:"rgba(41,128,185,0.2)", responsable:"rgba(155,89,182,0.2)", pdg:"rgba(30,132,73,0.2)", candidat:"rgba(211,84,0,0.2)"};
-const ROLE_TEXT   = {agent:"#5DADE2", responsable:"#C8A0E8", pdg:"#52D98B", candidat:"#F0A840"};
+const ROLE_LABELS = {agent:"Agent de sécurité", responsable:"Responsable de service", pdg:"PDG", candidat:"Candidat", admin:"Administrateur"};
+const ROLE_COLORS = {agent:"rgba(41,128,185,0.2)", responsable:"rgba(155,89,182,0.2)", pdg:"rgba(30,132,73,0.2)", candidat:"rgba(211,84,0,0.2)", admin:"rgba(192,57,43,0.2)"};
+const ROLE_TEXT   = {agent:"#5DADE2", responsable:"#C8A0E8", pdg:"#52D98B", candidat:"#F0A840", admin:"#F08080"};
 
 const PATROL_ORDER = ["centrale","01","02","03","04","cmd"];
 const STATUSES = ["Disponible","Indisponible","Intervention","Convoi","Formation","Hors service"];
@@ -656,7 +583,7 @@ function syncBadge(msg, color="#4A7F5E") {
 }
 
 // ─── PINS & COMPTES ────────────────────────────────────────────────
-const PINS = { agent:"0156", responsable:"1569", pdg:"8476", candidat:null };
+const PINS = { agent:"0156", responsable:"1569", admin:"8476", candidat:null };
 let currentAgent = null; // { id, nom, prenom, role } for individual login
 let serviceEnCours = null; // { id, debut } current service
 let serviceTimer = null;
@@ -692,16 +619,99 @@ function backToStep1() {
   document.getElementById("login-step2").style.display="none";
   document.querySelectorAll(".role-btn").forEach(b=>b.classList.remove("selected"));
 }
+
+// ─── NAVIGATION (menu latéral + pages) ──────────────────────────────
+const NAV_CONFIG = [
+  {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
+  {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
+  {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent"],                             section:"Opérations"},
+  {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion"},
+  {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
+  {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badge:true},
+  {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
+  {page:"candidature-form", icon:"📝", label:"Candidater au service", roles:["candidat"],                          section:""},
+];
+
+function renderSidenav() {
+  const nav = document.getElementById("sidenav");
+  if(!nav) return;
+  const items = NAV_CONFIG.filter(it=>it.roles.includes(role));
+  let html = "", lastSection = null;
+  items.forEach(it=>{
+    if(it.section && it.section!==lastSection) {
+      html += `<div class="sidenav-section">${it.section}</div>`;
+      lastSection = it.section;
+    }
+    html += `<button class="nav-item" id="nav-${it.page}" onclick="goPage('${it.page}')">
+      <div class="nav-icon">${it.icon}</div>
+      <span class="nav-label">${it.label}</span>
+      ${it.badge?`<span class="nav-badge" id="nav-badge-cand" style="display:none;">0</span>`:""}
+    </button>`;
+  });
+  nav.innerHTML = html;
+}
+
+function goPage(pageId) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  const target = document.getElementById("page-"+pageId);
+  if(target) target.classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  const navBtn = document.getElementById("nav-"+pageId);
+  if(navBtn) navBtn.classList.add("active");
+
+  if(pageId==="patrouilles")       renderPatrols();
+  if(pageId==="absences-gestion")  renderAbsences();
+  if(pageId==="logs-service")      loadLogs();
+  if(pageId==="admin-comptes")     loadComptes();
+  if(pageId==="mon-service")       initServicePage();
+  if(pageId==="candidatures")    { renderCandidatures(); markCandRead(); }
+}
+
+function launchApp() {
+  document.getElementById("screen-login").style.display="none";
+  document.getElementById("app").style.display="block";
+
+  const topbarRole = document.getElementById("topbar-role");
+  if(topbarRole) {
+    const who = currentCompte ? " — "+currentCompte.prenom+" "+currentCompte.nom : "";
+    topbarRole.textContent = (ROLE_LABELS[role]||role) + who;
+    topbarRole.style.background = ROLE_COLORS[role]||"rgba(255,255,255,0.08)";
+    topbarRole.style.color = ROLE_TEXT[role]||"#fff";
+  }
+
+  const bell = document.getElementById("notif-bell");
+  if(bell) bell.style.display = (role==="responsable"||role==="pdg"||role==="admin") ? "flex" : "none";
+
+  renderSidenav();
+  const defaultPage = role==="candidat" ? "candidature-form" : "patrouilles";
+  goPage(defaultPage);
+
+  clearInterval(_refreshInterval); _refreshInterval=null;
+  if(role!=="candidat") {
+    loadAll();
+    _refreshInterval = setInterval(loadAll, 15000);
+  }
+}
+
+function logout() {
+  clearInterval(_refreshInterval); _refreshInterval=null;
+  clearInterval(serviceTimer); serviceTimer=null;
+  role=null; currentCompte=null; currentAgent=null; serviceEnCours=null;
+  document.getElementById("app").style.display="none";
+  document.getElementById("screen-login").style.display="flex";
+  backToStep1();
+  document.getElementById("pin-input").value="";
+}
 async function confirmLogin() {
   if(!role) return;
   const pin = document.getElementById("pin-input").value.trim();
   const err = document.getElementById("pin-error");
   err.style.display="none";
 
-  if(role==="agent" || role==="responsable") {
+  if(role==="agent" || role==="responsable" || role==="pdg") {
     // PIN individuel — vérification dans Supabase
     try {
-      const r = await fetch(SB_URL+"/rest/v1/comptes_agents?pin=eq."+encodeURIComponent(pin)+"&role=eq."+role+"&select=*", {
+      const r = await fetch(SB_URL+"/rest/v1/agents_comptes?pin=eq."+encodeURIComponent(pin)+"&role=eq."+role+"&select=*", {
         headers:H, mode:"cors"
       });
       const data = await r.json();
@@ -713,13 +723,14 @@ async function confirmLogin() {
         return;
       }
       currentCompte = data[0];
+      currentAgent = data[0];
       launchApp();
     } catch(e) {
       err.textContent="Erreur de connexion : "+e.message;
       err.style.display="block";
     }
   } else {
-    // PDG et Candidat — PIN fixe
+    // Admin et Candidat — PIN fixe (ou aucun)
     if(PINS[role] && pin !== PINS[role]) {
       err.textContent="Code PIN incorrect. Réessayez.";
       err.style.display="block";
@@ -728,6 +739,7 @@ async function confirmLogin() {
       return;
     }
     currentCompte = null;
+    currentAgent = null;
     launchApp();
   }
 }
@@ -741,18 +753,14 @@ async function loadAll() {
       try { const r = await sb(path); return r||[]; }
       catch(e) { console.warn("Load failed:", path, e.message); return []; }
     };
-    const [p,a,c,cp,ls] = await Promise.all([
+    const [p,a,c] = await Promise.all([
       tryLoad("patrouilles_live?select=*&order=patrol_id"),
       tryLoad("absences?select=*&order=created_at.desc"),
       tryLoad("candidatures?select=*&order=created_at.desc"),
-      tryLoad("comptes_agents?select=id,nom,role&order=nom"),
-      tryLoad("logs_service?select=*&order=debut.desc&limit=200"),
     ]);
     patrols      = p;
     absences     = a;
     candidatures = c;
-    comptes      = cp;
-    logsService  = ls;
     syncBadge("✓ En ligne","#4A7F5E");
     // Notifs nouvelles candidatures
     const nvx = candidatures.filter(c=>!c.lu).length;
@@ -841,7 +849,7 @@ function renderAgentChips() {
   const wrap = document.getElementById("agents-chips");
   if(!wrap) return;
   wrap.innerHTML = "";
-  const canManage = (role==="responsable"||role==="pdg");
+  const canManage = (role==="responsable"||role==="pdg"||role==="admin");
   const addRow = document.getElementById("add-agent-row");
   const readonlyNote = document.getElementById("agents-readonly-note");
   if(addRow) addRow.style.display = canManage ? "flex" : "none";
@@ -1401,7 +1409,7 @@ function renderComptes() {
   if(!el) return;
   if(cnt) cnt.textContent = allComptes.length+" compte(s)";
   if(!allComptes.length){ el.innerHTML='<div class="empty"><p>Aucun compte créé.</p></div>'; return; }
-  const roleLabels = {agent:"Agent de sécurité", responsable:"Responsable"};
+  const roleLabels = {agent:"Agent de sécurité", responsable:"Responsable", pdg:"PDG"};
   el.innerHTML = allComptes.map(c=>`
     <div class="admin-compte">
       <div class="admin-compte-info">
@@ -1447,3 +1455,4 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
