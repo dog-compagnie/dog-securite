@@ -313,7 +313,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <div class="topbar-role" id="topbar-role"></div>
   <div class="topbar-right">
     <div class="sync-badge" id="sync-badge">✓ Connecté</div>
-    <button class="notif-bell" id="notif-bell" onclick="goPage('candidatures')" title="Candidatures" style="display:none;">🔔<span class="notif-dot" id="notif-dot" style="display:none;">0</span></button>
+    <button class="notif-bell" id="notif-bell" onclick="goToNotifs()" title="Notifications" style="display:none;">🔔<span class="notif-dot" id="notif-dot" style="display:none;">0</span></button>
     <button class="logout-btn" onclick="logout()">⟵ Changer</button>
   </div>
 </div>
@@ -545,7 +545,7 @@ const sb = async (path, opts={}) => {
 // ─── STATE ─────────────────────────────────────────────────────────
 let role = null;
 let currentCompte = null; // compte individuel connecté
-let agents = JSON.parse(localStorage.getItem("dog_agents_v1")||"[]");
+let agents = JSON.parse(localStorage.getItem("dog_agents_v1")||"[]").sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
 let patrols = [];
 let absences = [];
 let candidatures = [];
@@ -619,9 +619,9 @@ const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
   {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg"],         section:"Opérations"},
-  {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion"},
+  {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-abs"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
-  {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badge:true},
+  {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
   {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
   {page:"candidature-form", icon:"📝", label:"Candidater au service", roles:["candidat"],                          section:""},
 ];
@@ -639,10 +639,11 @@ function renderSidenav() {
     html += `<button class="nav-item" id="nav-${it.page}" onclick="goPage('${it.page}')">
       <div class="nav-icon">${it.icon}</div>
       <span class="nav-label">${it.label}</span>
-      ${it.badge?`<span class="nav-badge" id="nav-badge-cand" style="display:none;">0</span>`:""}
+      ${it.badgeId?`<span class="nav-badge" id="${it.badgeId}" style="display:none;">0</span>`:""}
     </button>`;
   });
   nav.innerHTML = html;
+  updateNotifBadges();
 }
 
 function goPage(pageId) {
@@ -662,7 +663,71 @@ function goPage(pageId) {
     const nomEl = document.getElementById("abs-nom");
     if(nomEl && !nomEl.value && currentAgent) nomEl.value = currentAgent.prenom+" "+currentAgent.nom;
   }
-  if(pageId==="candidatures")    { renderCandidatures(); markCandRead(); }
+  if(pageId==="candidatures")      { renderCandidatures(); markCandSeen(); }
+  if(pageId==="absences-gestion")  { markAbsSeen(); }
+}
+
+// ─── NOTIFICATIONS (nouvelle entrée + changement de statut) ─────────
+// Suivi PARTAGÉ côté Supabase (colonne vu_statut sur candidatures/absences) :
+// vu par n'importe quel Responsable/PDG/Admin = vu pour tout le monde.
+function computeNotifCounts() {
+  const canSee = (role==="responsable"||role==="pdg"||role==="admin");
+  if(!canSee) return {cand:0, abs:0, total:0};
+  const candCount = candidatures.filter(c=>{
+    const cur = c.statut||"Nouvelle";
+    return c.vu_statut===undefined || c.vu_statut===null || c.vu_statut!==cur;
+  }).length;
+  const absCount = absences.filter(a=>{
+    const cur = a.statut||"En attente";
+    return a.vu_statut===undefined || a.vu_statut===null || a.vu_statut!==cur;
+  }).length;
+  return {cand:candCount, abs:absCount, total:candCount+absCount};
+}
+
+async function markCandSeen() {
+  const unseen = candidatures.filter(c=>{
+    const cur = c.statut||"Nouvelle";
+    return c.vu_statut===undefined || c.vu_statut===null || c.vu_statut!==cur;
+  });
+  if(!unseen.length) return;
+  try {
+    await Promise.all(unseen.map(c =>
+      sb(`candidatures?id=eq.${c.id}`, {method:"PATCH", body:JSON.stringify({vu_statut:c.statut||"Nouvelle"})})
+    ));
+    unseen.forEach(c=>{ c.vu_statut = c.statut||"Nouvelle"; });
+    updateNotifBadges();
+  } catch(e) { console.warn("markCandSeen error:", e.message); }
+}
+async function markAbsSeen() {
+  const unseen = absences.filter(a=>{
+    const cur = a.statut||"En attente";
+    return a.vu_statut===undefined || a.vu_statut===null || a.vu_statut!==cur;
+  });
+  if(!unseen.length) return;
+  try {
+    await Promise.all(unseen.map(a =>
+      sb(`absences?id=eq.${a.id}`, {method:"PATCH", body:JSON.stringify({vu_statut:a.statut||"En attente"})})
+    ));
+    unseen.forEach(a=>{ a.vu_statut = a.statut||"En attente"; });
+    updateNotifBadges();
+  } catch(e) { console.warn("markAbsSeen error:", e.message); }
+}
+
+function updateNotifBadges() {
+  const {cand, abs, total} = computeNotifCounts();
+  const dot = document.getElementById("notif-dot");
+  const bell = document.getElementById("notif-bell");
+  if(dot)  { dot.textContent = total; dot.style.display = total>0 ? "flex" : "none"; }
+  if(bell) bell.classList.toggle("has-notif", total>0);
+  const navCand = document.getElementById("nav-badge-cand");
+  if(navCand) { navCand.textContent = cand; navCand.style.display = cand>0 ? "inline-flex" : "none"; }
+  const navAbs = document.getElementById("nav-badge-abs");
+  if(navAbs)  { navAbs.textContent = abs; navAbs.style.display = abs>0 ? "inline-flex" : "none"; }
+}
+function goToNotifs() {
+  const {cand, abs} = computeNotifCounts();
+  if(abs>0 && cand===0) goPage("absences-gestion");
+  else goPage("candidatures");
 }
 
 function launchApp() {
@@ -760,21 +825,14 @@ async function loadAll() {
     absences     = a;
     candidatures = c;
     syncBadge("✓ En ligne","#4A7F5E");
-    // Notifs nouvelles candidatures
-    const nvx = candidatures.filter(c=>!c.lu).length;
-    const dot = document.getElementById("notif-dot");
-    const bell = document.getElementById("notif-bell");
-    const navBadge = document.getElementById("nav-badge-cand");
-    if(dot)  { dot.textContent=nvx; dot.style.display=nvx>0?"flex":"none"; }
-    if(bell) bell.classList.toggle("has-notif", nvx>0);
-    if(navBadge){ navBadge.textContent=nvx; navBadge.style.display=nvx>0?"inline-flex":"none";}
+    updateNotifBadges();
     // Re-render page active
     const activePage = document.querySelector(".page.active");
     if(activePage) {
       const pid = activePage.id.replace("page-","");
       if(pid==="patrouilles") renderPatrols();
-      if(pid==="absences-gestion") renderAbsences();
-      if(pid==="candidatures") renderCandidatures();
+      if(pid==="absences-gestion") { renderAbsences(); markAbsSeen(); }
+      if(pid==="candidatures") { renderCandidatures(); markCandSeen(); }
     }
   } catch(e) {
     syncBadge("⚠ Hors ligne","#F0A840");
@@ -865,7 +923,9 @@ function addAgent() {
   const inp=document.getElementById("new-agent-inp");
   const name=inp.value.trim();
   if(!name||agents.includes(name)) return;
-  agents.push(name); inp.value="";
+  agents.push(name);
+  agents.sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+  inp.value="";
   localStorage.setItem("dog_agents_v1",JSON.stringify(agents));
   renderPatrols();
   toast("Agent ajouté : "+name);
@@ -1243,11 +1303,6 @@ async function suppCand(id) {
   try{await sb(`candidatures?id=eq.${id}`,{method:"DELETE"});await loadAll();}
   catch(e){toast("Erreur","#E74C3C");}
 }
-async function markCandRead() {
-  const unread=candidatures.filter(c=>!c.lu).map(c=>c.id);
-  if(!unread.length) return;
-  try { await sb(`candidatures?id=in.(${unread.join(",")})`,{method:"PATCH",body:JSON.stringify({lu:true})}); } catch(e){}
-}
 
 
 // ─── MON SERVICE ───────────────────────────────────────────────────
@@ -1453,5 +1508,3 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
-
-
