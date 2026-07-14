@@ -403,12 +403,12 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 <div class="toast" id="toast"></div>
 
 <script>
-const SB_URL = "https://mrcbbktbunfrijpmbqak.supabase.co";
+const SB_URL = "https://mrcbbkthunfrijpmbqak.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY2Jia3RodW5mcmlqcG1icWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDI0MjEsImV4cCI6MjA5OTYxODQyMX0.6GNyG8oK2cMV4v5qDiEhACZQ3WI69tPJ_cRlpCjcDHg";
 const H = {"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Prefer":"return=representation"};
 
 const sb = async (path, opts={}) => {
-  const r = await fetch(SB_URL+"/rest/v1/"+path, {headers:H,...opts});
+  const r = await fetch(SB_URL+"/rest/v1/"+path, {headers:H, mode:"cors", ...opts});
   if(!r.ok) throw new Error(await r.text());
   return r.json().catch(()=>[]);
 };
