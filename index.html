@@ -1132,7 +1132,6 @@ async function soumettreCandidat() {
     });
     ynState={};
     document.querySelectorAll(".yn-btn").forEach(b=>b.classList.remove("active"));
-    document.getElementById("licence-detail").style.display="none";
     syncBadge("✓ Envoyé","#4A7F5E");
   } catch(e){
     console.error("Erreur candidature:",e);
