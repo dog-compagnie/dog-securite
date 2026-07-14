@@ -53,6 +53,17 @@ input,select,textarea{font-family:inherit;}
 .notif-bell{position:relative;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;font-size:14px;color:var(--text2);}
 .notif-bell.has-notif{color:var(--orange-light);border-color:rgba(211,84,0,0.3);background:rgba(211,84,0,0.1);}
 .notif-dot{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:var(--orange);border-radius:50%;font-size:9px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;}
+.notif-panel{position:absolute;top:44px;right:0;width:340px;max-height:440px;overflow-y:auto;background:#161E2A;border:1px solid rgba(41,128,185,0.3);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.55);z-index:200;display:none;}
+.notif-panel.show{display:block;}
+.notif-panel-hdr{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;color:#A8CFEA;position:sticky;top:0;background:#161E2A;}
+.notif-item{padding:11px 14px;border-bottom:1px solid rgba(41,128,185,0.08);cursor:pointer;transition:background 0.15s;}
+.notif-item:hover{background:rgba(41,128,185,0.08);}
+.notif-item:last-child{border-bottom:none;}
+.notif-item-text{font-size:12px;color:var(--text);line-height:1.5;}
+.notif-item-time{font-size:10px;color:var(--text3);margin-top:3px;}
+.notif-empty{padding:26px 14px;text-align:center;font-size:12px;color:var(--text3);}
+.notif-mark-all{padding:10px 14px;text-align:center;font-size:11px;color:var(--blue-light);cursor:pointer;border-top:1px solid var(--border);font-weight:700;position:sticky;bottom:0;background:#161E2A;}
+.notif-mark-all:hover{background:rgba(41,128,185,0.08);}
 
 /* ═══ SIDENAV ═══ */
 .sidenav{position:fixed;top:58px;left:0;bottom:0;width:210px;background:rgba(10,14,20,0.9);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:90;overflow-y:auto;}
@@ -313,7 +324,16 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <div class="topbar-role" id="topbar-role"></div>
   <div class="topbar-right">
     <div class="sync-badge" id="sync-badge">✓ Connecté</div>
-    <button class="notif-bell" id="notif-bell" onclick="goToNotifs()" title="Notifications" style="display:none;">🔔<span class="notif-dot" id="notif-dot" style="display:none;">0</span></button>
+    <div class="notif-wrap" style="position:relative;">
+      <button class="notif-bell" id="notif-bell" onclick="toggleNotifPanel()" title="Notifications" style="display:none;">🔔<span class="notif-dot" id="notif-dot" style="display:none;">0</span></button>
+      <div class="notif-panel" id="notif-panel">
+        <div class="notif-panel-hdr">
+          <span>Notifications</span>
+          <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:10px;" onclick="closeNotifPanel()">Fermer</button>
+        </div>
+        <div id="notif-panel-list"></div>
+      </div>
+    </div>
     <button class="logout-btn" onclick="logout()">⟵ Changer</button>
   </div>
 </div>
@@ -663,54 +683,108 @@ function goPage(pageId) {
     const nomEl = document.getElementById("abs-nom");
     if(nomEl && !nomEl.value && currentAgent) nomEl.value = currentAgent.prenom+" "+currentAgent.nom;
   }
-  if(pageId==="candidatures")      { renderCandidatures(); markCandSeen(); }
-  if(pageId==="absences-gestion")  { markAbsSeen(); }
+  if(pageId==="candidatures")      renderCandidatures();
 }
 
 // ─── NOTIFICATIONS (nouvelle entrée + changement de statut) ─────────
 // Suivi PARTAGÉ côté Supabase (colonne vu_statut sur candidatures/absences) :
 // vu par n'importe quel Responsable/PDG/Admin = vu pour tout le monde.
-function computeNotifCounts() {
+// Une notification n'est marquée comme lue QUE si on clique dessus (ou "tout marquer comme lu") —
+// le simple fait d'ouvrir la page de gestion ne la fait plus disparaître.
+function getNotifications() {
   const canSee = (role==="responsable"||role==="pdg"||role==="admin");
-  if(!canSee) return {cand:0, abs:0, total:0};
-  const candCount = candidatures.filter(c=>{
+  if(!canSee) return [];
+  const list = [];
+  candidatures.forEach(c=>{
     const cur = c.statut||"Nouvelle";
-    return c.vu_statut===undefined || c.vu_statut===null || c.vu_statut!==cur;
-  }).length;
-  const absCount = absences.filter(a=>{
+    if(c.vu_statut===undefined || c.vu_statut===null) {
+      list.push({type:"cand", id:c.id, icon:"📨", text:`Nouvelle candidature de ${c.prenom||""} ${c.nom||""}`.trim(), time:c.created_at});
+    } else if(c.vu_statut!==cur) {
+      list.push({type:"cand", id:c.id, icon:"📨", text:`La candidature de ${c.prenom||""} ${c.nom||""} est passée en ${cur.toLowerCase()}`, time:c.created_at});
+    }
+  });
+  absences.forEach(a=>{
     const cur = a.statut||"En attente";
-    return a.vu_statut===undefined || a.vu_statut===null || a.vu_statut!==cur;
-  }).length;
-  return {cand:candCount, abs:absCount, total:candCount+absCount};
+    if(a.vu_statut===undefined || a.vu_statut===null) {
+      list.push({type:"abs", id:a.id, icon:"📅", text:`Nouvelle absence déclarée par ${a.agent_nom||"un agent"}`, time:a.created_at});
+    } else if(a.vu_statut!==cur) {
+      list.push({type:"abs", id:a.id, icon:"📅", text:`L'absence de ${a.agent_nom||"un agent"} est passée en ${cur.toLowerCase()}`, time:a.created_at});
+    }
+  });
+  list.sort((x,y)=> new Date(y.time||0) - new Date(x.time||0));
+  return list;
 }
 
-async function markCandSeen() {
-  const unseen = candidatures.filter(c=>{
-    const cur = c.statut||"Nouvelle";
-    return c.vu_statut===undefined || c.vu_statut===null || c.vu_statut!==cur;
-  });
-  if(!unseen.length) return;
-  try {
-    await Promise.all(unseen.map(c =>
-      sb(`candidatures?id=eq.${c.id}`, {method:"PATCH", body:JSON.stringify({vu_statut:c.statut||"Nouvelle"})})
-    ));
-    unseen.forEach(c=>{ c.vu_statut = c.statut||"Nouvelle"; });
-    updateNotifBadges();
-  } catch(e) { console.warn("markCandSeen error:", e.message); }
+function computeNotifCounts() {
+  const notifs = getNotifications();
+  const cand = notifs.filter(n=>n.type==="cand").length;
+  const abs  = notifs.filter(n=>n.type==="abs").length;
+  return {cand, abs, total:notifs.length};
 }
-async function markAbsSeen() {
-  const unseen = absences.filter(a=>{
-    const cur = a.statut||"En attente";
-    return a.vu_statut===undefined || a.vu_statut===null || a.vu_statut!==cur;
-  });
-  if(!unseen.length) return;
-  try {
-    await Promise.all(unseen.map(a =>
-      sb(`absences?id=eq.${a.id}`, {method:"PATCH", body:JSON.stringify({vu_statut:a.statut||"En attente"})})
-    ));
-    unseen.forEach(a=>{ a.vu_statut = a.statut||"En attente"; });
-    updateNotifBadges();
-  } catch(e) { console.warn("markAbsSeen error:", e.message); }
+
+function fmtNotifTime(ts) {
+  if(!ts) return "";
+  const d = new Date(ts);
+  return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})+" à "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+}
+
+function renderNotifPanel() {
+  const listEl = document.getElementById("notif-panel-list");
+  if(!listEl) return;
+  const notifs = getNotifications();
+  if(!notifs.length) {
+    listEl.innerHTML = `<div class="notif-empty">Aucune nouvelle notification.</div>`;
+    return;
+  }
+  listEl.innerHTML = notifs.map(n=>`
+    <div class="notif-item" onclick="handleNotifClick('${n.type}','${n.id}')">
+      <div class="notif-item-text">${n.icon} ${esc(n.text)}</div>
+      <div class="notif-item-time">${fmtNotifTime(n.time)}</div>
+    </div>`).join("")
+    + `<div class="notif-mark-all" onclick="markAllNotifsSeen()">✓ Tout marquer comme lu</div>`;
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById("notif-panel");
+  if(!panel) return;
+  if(panel.classList.contains("show")) { panel.classList.remove("show"); return; }
+  renderNotifPanel();
+  panel.classList.add("show");
+}
+function closeNotifPanel() {
+  document.getElementById("notif-panel")?.classList.remove("show");
+}
+document.addEventListener("click", (e)=>{
+  const wrap = document.querySelector(".notif-wrap");
+  if(wrap && !wrap.contains(e.target)) closeNotifPanel();
+});
+
+async function markOneSeen(type, id) {
+  if(type==="cand") {
+    const c = candidatures.find(x=>String(x.id)===String(id));
+    if(!c) return;
+    try { await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vu_statut:c.statut||"Nouvelle"})}); c.vu_statut = c.statut||"Nouvelle"; }
+    catch(e) { console.warn("markOneSeen cand error:", e.message); }
+  } else {
+    const a = absences.find(x=>String(x.id)===String(id));
+    if(!a) return;
+    try { await sb(`absences?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vu_statut:a.statut||"En attente"})}); a.vu_statut = a.statut||"En attente"; }
+    catch(e) { console.warn("markOneSeen abs error:", e.message); }
+  }
+}
+
+async function handleNotifClick(type, id) {
+  closeNotifPanel();
+  await markOneSeen(type, id);
+  updateNotifBadges();
+  goPage(type==="cand" ? "candidatures" : "absences-gestion");
+}
+
+async function markAllNotifsSeen() {
+  const notifs = getNotifications();
+  await Promise.all(notifs.map(n=>markOneSeen(n.type, n.id)));
+  updateNotifBadges();
+  renderNotifPanel();
 }
 
 function updateNotifBadges() {
@@ -723,11 +797,8 @@ function updateNotifBadges() {
   if(navCand) { navCand.textContent = cand; navCand.style.display = cand>0 ? "inline-flex" : "none"; }
   const navAbs = document.getElementById("nav-badge-abs");
   if(navAbs)  { navAbs.textContent = abs; navAbs.style.display = abs>0 ? "inline-flex" : "none"; }
-}
-function goToNotifs() {
-  const {cand, abs} = computeNotifCounts();
-  if(abs>0 && cand===0) goPage("absences-gestion");
-  else goPage("candidatures");
+  const panel = document.getElementById("notif-panel");
+  if(panel && panel.classList.contains("show")) renderNotifPanel();
 }
 
 function launchApp() {
@@ -831,8 +902,8 @@ async function loadAll() {
     if(activePage) {
       const pid = activePage.id.replace("page-","");
       if(pid==="patrouilles") renderPatrols();
-      if(pid==="absences-gestion") { renderAbsences(); markAbsSeen(); }
-      if(pid==="candidatures") { renderCandidatures(); markCandSeen(); }
+      if(pid==="absences-gestion") renderAbsences();
+      if(pid==="candidatures") renderCandidatures();
     }
   } catch(e) {
     syncBadge("⚠ Hors ligne","#F0A840");
