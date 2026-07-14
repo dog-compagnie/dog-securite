@@ -206,9 +206,50 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
 .legend-dot{width:9px;height:9px;border-radius:50%;}
 
+/* SERVICE BADGE */
+.service-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(30,132,73,0.15);border:1px solid rgba(30,132,73,0.3);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;color:#52D98B;}
+.service-btn{width:100%;padding:14px;border-radius:10px;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;border:none;font-family:inherit;transition:all 0.15s;}
+.service-btn:active{transform:scale(0.97);}
+.service-btn-start{background:linear-gradient(135deg,#1E8449,#176139);color:#fff;}
+.service-btn-start:hover{filter:brightness(1.1);}
+.service-btn-end{background:linear-gradient(135deg,#C0392B,#A93226);color:#fff;}
+.service-btn-end:hover{filter:brightness(1.1);}
+/* LOGS */
+.log-item{background:rgba(13,21,32,0.5);border:1px solid rgba(41,128,185,0.1);border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.log-agent{font-size:13px;font-weight:700;color:#fff;}
+.log-dates{font-size:11px;color:var(--blue-light);margin-top:2px;}
+.log-duree{font-size:14px;font-weight:800;color:#52D98B;white-space:nowrap;}
+.log-en-cours{font-size:12px;font-weight:700;color:#F0A840;background:rgba(211,84,0,0.15);border:1px solid rgba(211,84,0,0.3);border-radius:8px;padding:4px 10px;}
+/* ADMIN PANEL */
+.admin-compte{background:rgba(13,21,32,0.5);border:1px solid rgba(41,128,185,0.12);border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.admin-compte-info .ac-nom{font-size:13px;font-weight:700;color:#fff;}
+.admin-compte-info .ac-role{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;}
+.admin-compte-info .ac-pin{font-size:11px;color:var(--text3);font-style:italic;margin-top:2px;}
+
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:rgba(41,128,185,0.2);border-radius:4px;}
+
+/* SERVICE BUTTON */
+.service-btn{width:100%;padding:16px;border-radius:12px;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;border:none;font-family:inherit;transition:all 0.15s;}
+.service-btn:active{transform:scale(0.98);}
+.service-btn-start{background:linear-gradient(135deg,#1E8449,#176139);color:#fff;box-shadow:0 4px 16px rgba(30,132,73,0.3);}
+.service-btn-end{background:linear-gradient(135deg,#C0392B,#A93226);color:#fff;box-shadow:0 4px 16px rgba(192,57,43,0.3);}
+.service-timer{font-size:32px;font-weight:900;color:#52D98B;font-variant-numeric:tabular-nums;text-align:center;letter-spacing:2px;margin:10px 0;}
+.service-info{background:rgba(13,21,32,0.5);border:1px solid rgba(30,132,73,0.2);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;}
+
+/* LOGS */
+.log-item{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.log-agent{font-size:13px;font-weight:700;color:#fff;}
+.log-detail{font-size:11px;color:var(--text2);margin-top:2px;}
+.log-dur{font-size:13px;font-weight:700;color:#52D98B;white-space:nowrap;}
+.log-dur.en-cours{color:#F0A840;}
+
+/* ADMIN COMPTES */
+.compte-item{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.compte-nom{font-size:13px;font-weight:700;color:#fff;}
+.compte-role{font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;}
+.compte-pin{font-size:11px;color:var(--text3);font-family:monospace;letter-spacing:2px;}
 </style>
 </head>
 <body>
@@ -241,6 +282,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
           <span class="role-name">PDG</span>
         </button>
       </div>
+
     </div>
 
     <!-- ÉTAPE 2 : saisie PIN -->
@@ -374,9 +416,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
               <button class="yn-btn no"  data-field="licence" data-val="N" onclick="toggleYN(this)">Non</button>
             </div>
           </div>
-          <div id="licence-detail" style="display:none;padding-top:10px;">
-            <div class="field" style="margin-bottom:0;"><label>Type / numéro de licence</label><input id="cand-licence-type" placeholder="Ex : CQP APS, SSIAP…"></div>
-          </div>
+
         </div>
 
         <div class="field"><label>Disponibilités</label><input id="cand-dispo" placeholder="Ex : soirs et week-ends, immédiatement…"></div>
@@ -389,12 +429,180 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     </div>
   </div>
 
+  <!-- PAGE MON SERVICE (agent) -->
+  <div class="page" id="page-mon-service">
+    <div class="page-title">Mon <span>service</span></div>
+    <div class="page-sub" id="service-sub">Gérez votre prise et fin de service.</div>
+    <div style="max-width:420px;">
+      <div class="card">
+        <div class="card-hdr"><div class="card-hdr-title">🟢 Statut de service</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+          <div id="service-status-display" style="text-align:center;padding:10px 0;">
+            <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Statut actuel</div>
+            <div id="service-current-badge" style="font-size:15px;font-weight:700;color:var(--text3);">⬛ Hors service</div>
+          </div>
+          <div id="service-timer" style="display:none;text-align:center;padding:6px 0;">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">En service depuis</div>
+            <div id="service-elapsed" style="font-size:28px;font-weight:900;color:#52D98B;font-variant-numeric:tabular-nums;">00:00:00</div>
+          </div>
+          <button id="btn-prise-service" class="service-btn service-btn-start" onclick="toggleService()">
+            🟢 Prendre le service
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-hdr-title">📋 Mes derniers services</div></div>
+        <div class="card-body" id="mes-services-list">
+          <div class="empty"><p>Aucun service enregistré.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE LOGS DE SERVICE (PDG + Responsable) -->
+  <div class="page" id="page-logs-service">
+    <div class="page-title">Logs de <span>service</span></div>
+    <div class="page-sub">Historique complet des prises et fins de service de tous les agents.</div>
+    <div class="stats-bar" id="logs-stats"></div>
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-hdr-title">📊 Historique</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="loadLogs()">🔄 Actualiser</button>
+        </div>
+      </div>
+      <div class="card-body" id="logs-list">
+        <div class="empty"><div class="empty-icon">📋</div><p>Chargement…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE ADMIN COMPTES (PDG uniquement) -->
+  <div class="page" id="page-admin-comptes">
+    <div class="page-title">Gestion des <span>comptes</span></div>
+    <div class="page-sub">Créez et gérez les comptes des agents avec leur PIN individuel.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
+      <div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">➕ Créer un compte</div></div>
+          <div class="card-body">
+            <div class="field-row-2">
+              <div class="field"><label>Prénom</label><input id="ac-prenom" placeholder="Prénom"></div>
+              <div class="field"><label>Nom</label><input id="ac-nom" placeholder="NOM"></div>
+            </div>
+            <div class="field">
+              <label>Rôle</label>
+              <select id="ac-role">
+                <option value="agent">Agent de sécurité</option>
+                <option value="responsable">Responsable de service</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Code PIN (4 chiffres)</label>
+              <input id="ac-pin" type="password" inputmode="numeric" maxlength="4" placeholder="Ex : 1234">
+            </div>
+            <button class="btn btn-primary btn-full" onclick="creerCompte()" style="margin-top:4px;">Créer le compte</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-hdr-title">👥 Comptes existants</div>
+            <span id="comptes-count" style="font-size:11px;color:var(--text2);">0 compte(s)</span>
+          </div>
+          <div class="card-body" id="comptes-list">
+            <div class="empty"><p>Aucun compte créé.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PAGE CANDIDATURES (gestion) -->
   <div class="page" id="page-candidatures">
     <div class="page-title">Candidatures <span>reçues</span></div>
     <div class="page-sub">Toutes les candidatures soumises par des personnes externes.</div>
     <div class="stats-bar" id="cand-stats"></div>
     <div id="candidatures-list"></div>
+  </div>
+
+  <!-- PAGE SERVICE (agent) -->
+  <div class="page" id="page-service">
+    <div class="page-title">Mon <span>service</span></div>
+    <div class="page-sub" id="service-agent-sub">Gérez votre prise et fin de service.</div>
+    <div style="max-width:400px;">
+      <div class="card">
+        <div class="card-hdr"><div class="card-hdr-title">⏱ Chronomètre de service</div></div>
+        <div class="card-body" style="text-align:center;">
+          <div class="service-info" id="service-info" style="display:none;">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Service en cours depuis</div>
+            <div class="service-timer" id="service-timer">00:00:00</div>
+            <div style="font-size:11px;color:var(--text2);" id="service-start-label"></div>
+          </div>
+          <div id="service-no-info" style="color:var(--text3);font-size:13px;padding:20px 0;">
+            <div style="font-size:36px;margin-bottom:8px;">💤</div>
+            Vous n'êtes pas en service.
+          </div>
+          <button class="service-btn service-btn-start" id="btn-prendre-service" onclick="prendreService()" style="display:none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Prendre mon service
+          </button>
+          <button class="service-btn service-btn-end" id="btn-fin-service" onclick="finService()" style="display:none;margin-top:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+            Terminer mon service
+          </button>
+        </div>
+      </div>
+      <div class="card" id="my-logs-card">
+        <div class="card-hdr"><div class="card-hdr-title">📋 Mes derniers services</div></div>
+        <div class="card-body" id="my-logs-list" style="padding:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE LOGS (PDG/Responsable) -->
+  <div class="page" id="page-logs">
+    <div class="page-title">Logs de <span>service</span></div>
+    <div class="page-sub">Historique de toutes les prises et fins de service des agents.</div>
+    <div class="stats-bar" id="logs-stats"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="logs-filter-bar"></div>
+    <div id="logs-list"></div>
+  </div>
+
+  <!-- PAGE ADMIN COMPTES (PDG uniquement) -->
+  <div class="page" id="page-admin">
+    <div class="page-title">Gestion des <span>comptes</span></div>
+    <div class="page-sub">Créez et gérez les comptes individuels avec leur PIN.</div>
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;max-width:900px;">
+      <div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">➕ Créer un compte</div></div>
+          <div class="card-body">
+            <div class="field-row-2">
+              <div class="field"><label>Nom complet *</label><input id="admin-nom" placeholder="Prénom NOM"></div>
+              <div class="field"><label>Rôle *</label>
+                <select id="admin-role">
+                  <option value="agent">Agent de sécurité</option>
+                  <option value="responsable">Responsable de service</option>
+                </select>
+              </div>
+            </div>
+            <div class="field"><label>Code PIN (4 chiffres) *</label><input id="admin-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+            <button class="btn btn-success btn-full" onclick="creerCompte()" style="margin-top:6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Créer le compte
+            </button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">👥 Comptes existants</div></div>
+          <div class="card-body" style="padding:12px;" id="comptes-list"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div><!-- /main -->
@@ -415,12 +623,17 @@ const sb = async (path, opts={}) => {
 
 // ─── STATE ─────────────────────────────────────────────────────────
 let role = null;
+let currentCompte = null; // compte individuel connecté
 let agents = JSON.parse(localStorage.getItem("dog_agents_v1")||"[]");
 let patrols = [];
 let absences = [];
 let candidatures = [];
+let comptes = [];
+let logsService = [];
 let ynState = {};
 let _refreshInterval = null;
+let _timerInterval = null;
+let _serviceDebut = null; // timestamp ISO du service en cours
 
 const ROLE_LABELS = {agent:"Agent de sécurité", responsable:"Responsable de service", pdg:"PDG", candidat:"Candidat"};
 const ROLE_COLORS = {agent:"rgba(41,128,185,0.2)", responsable:"rgba(155,89,182,0.2)", pdg:"rgba(30,132,73,0.2)", candidat:"rgba(211,84,0,0.2)"};
@@ -442,19 +655,29 @@ function syncBadge(msg, color="#4A7F5E") {
   if(b){ b.textContent=msg; b.style.color=color; }
 }
 
-// ─── PINS ──────────────────────────────────────────────────────────
+// ─── PINS & COMPTES ────────────────────────────────────────────────
 const PINS = { agent:"0156", responsable:"1569", pdg:"8476", candidat:null };
+let currentAgent = null; // { id, nom, prenom, role } for individual login
+let serviceEnCours = null; // { id, debut } current service
+let serviceTimer = null;
+let allComptes = []; // cached agent accounts
+let allLogs = []; // cached service logs
 
 // ─── LOGIN ─────────────────────────────────────────────────────────
 function selectRole(r) {
   document.querySelectorAll(".role-btn").forEach(b=>b.classList.remove("selected"));
-  document.getElementById("role-"+r).classList.add("selected");
+  document.getElementById("role-"+r)?.classList.add("selected");
   role = r;
   if(r==="candidat") {
-    // Pas de PIN pour les candidats → accès direct
     launchApp();
+  } else if(r==="individuel") {
+    document.getElementById("login-step1").style.display="none";
+    document.getElementById("login-step2").style.display="block";
+    document.getElementById("login-role-label").textContent = "Entrez votre PIN personnel";
+    document.getElementById("pin-input").value="";
+    document.getElementById("pin-error").style.display="none";
+    setTimeout(()=>document.getElementById("pin-input").focus(), 100);
   } else {
-    // Afficher étape PIN
     document.getElementById("login-step1").style.display="none";
     document.getElementById("login-step2").style.display="block";
     document.getElementById("login-role-label").textContent = "Espace : " + ROLE_LABELS[r];
@@ -469,100 +692,47 @@ function backToStep1() {
   document.getElementById("login-step2").style.display="none";
   document.querySelectorAll(".role-btn").forEach(b=>b.classList.remove("selected"));
 }
-function confirmLogin() {
+async function confirmLogin() {
   if(!role) return;
   const pin = document.getElementById("pin-input").value.trim();
-  if(PINS[role] && pin !== PINS[role]) {
-    const err = document.getElementById("pin-error");
-    err.textContent = "Code PIN incorrect. Réessayez.";
-    err.style.display="block";
-    document.getElementById("pin-input").value="";
-    document.getElementById("pin-input").focus();
-    return;
-  }
-  launchApp();
-}
-function launchApp() {
-  document.getElementById("screen-login").style.display="none";
-  document.getElementById("app").style.display="block";
-  initApp();
-}
-function logout() {
-  role=null; ynState={};
-  clearInterval(_refreshInterval);
-  document.getElementById("screen-login").style.display="flex";
-  document.getElementById("app").style.display="none";
-  document.querySelectorAll(".role-btn").forEach(b=>b.classList.remove("selected"));
-  document.getElementById("login-step1").style.display="block";
-  document.getElementById("login-step2").style.display="none";
-}
+  const err = document.getElementById("pin-error");
+  err.style.display="none";
 
-// ─── INIT APP ──────────────────────────────────────────────────────
-function initApp() {
-  const rb = document.getElementById("topbar-role");
-  rb.textContent = ROLE_LABELS[role];
-  rb.style.background = ROLE_COLORS[role];
-  rb.style.color = ROLE_TEXT[role];
-  rb.style.padding = "3px 10px";
-  rb.style.borderRadius = "12px";
-  rb.style.fontSize = "11px";
-  rb.style.fontWeight = "700";
-
-  buildSidenav();
-  // Default page
-  const first = navItems()[0];
-  if(first) goPage(first.page);
-  // Load data
-  loadAll();
-  // Auto-refresh toutes les 15s
-  _refreshInterval = setInterval(loadAll, 15000);
-}
-
-function navItems() {
-  if(role==="candidat") return [{icon:"📝",label:"Ma candidature",page:"candidature-form",bg:"rgba(211,84,0,0.2)"}];
-  if(role==="agent") return [
-    {icon:"🚔",label:"Patrouilles",page:"patrouilles",bg:"rgba(41,128,185,0.2)"},
-    {icon:"📅",label:"Déclarer une absence",page:"absence-form",bg:"rgba(155,89,182,0.2)"},
-  ];
-  // responsable + pdg
-  return [
-    {icon:"🚔",label:"Patrouilles",page:"patrouilles",bg:"rgba(41,128,185,0.2)"},
-    {icon:"📅",label:"Absences",page:"absences-gestion",bg:"rgba(155,89,182,0.2)"},
-    {icon:"🎯",label:"Candidatures",page:"candidatures",bg:"rgba(211,84,0,0.2)",badge:true},
-  ];
-}
-
-function buildSidenav() {
-  const nav = document.getElementById("sidenav");
-  nav.innerHTML = "";
-  navItems().forEach(item => {
-    const btn = document.createElement("button");
-    btn.className = "nav-item";
-    btn.id = "nav-"+item.page;
-    btn.onclick = ()=>goPage(item.page);
-    btn.innerHTML = `<div class="nav-icon" style="background:${item.bg}">${item.icon}</div><span class="nav-label">${item.label}</span>${item.badge?'<span class="nav-badge" id="nav-badge-cand" style="display:none">0</span>':""}`;
-    nav.appendChild(btn);
-  });
-  // Notif bell for responsable/pdg
-  if(role==="responsable"||role==="pdg") {
-    document.getElementById("notif-bell").style.display="flex";
+  if(role==="agent" || role==="responsable") {
+    // PIN individuel — vérification dans Supabase
+    try {
+      const r = await fetch(SB_URL+"/rest/v1/comptes_agents?pin=eq."+encodeURIComponent(pin)+"&role=eq."+role+"&select=*", {
+        headers:H, mode:"cors"
+      });
+      const data = await r.json();
+      if(!data||!data.length) {
+        err.textContent="Code PIN incorrect. Réessayez.";
+        err.style.display="block";
+        document.getElementById("pin-input").value="";
+        document.getElementById("pin-input").focus();
+        return;
+      }
+      currentCompte = data[0];
+      launchApp();
+    } catch(e) {
+      err.textContent="Erreur de connexion : "+e.message;
+      err.style.display="block";
+    }
+  } else {
+    // PDG et Candidat — PIN fixe
+    if(PINS[role] && pin !== PINS[role]) {
+      err.textContent="Code PIN incorrect. Réessayez.";
+      err.style.display="block";
+      document.getElementById("pin-input").value="";
+      document.getElementById("pin-input").focus();
+      return;
+    }
+    currentCompte = null;
+    launchApp();
   }
 }
 
-function goPage(page) {
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
-  const pg = document.getElementById("page-"+page);
-  const nv = document.getElementById("nav-"+page);
-  if(pg) pg.classList.add("active");
-  if(nv) nv.classList.add("active");
 
-  if(page==="patrouilles") renderPatrols();
-  if(page==="absences-gestion") renderAbsences();
-  if(page==="candidatures") { renderCandidatures(); markCandRead(); }
-}
-
-// ─── LOAD ALL ──────────────────────────────────────────────────────
 async function loadAll() {
   syncBadge("⏳ Synchro…","#5D8AA8");
   try {
@@ -571,14 +741,18 @@ async function loadAll() {
       try { const r = await sb(path); return r||[]; }
       catch(e) { console.warn("Load failed:", path, e.message); return []; }
     };
-    const [p,a,c] = await Promise.all([
+    const [p,a,c,cp,ls] = await Promise.all([
       tryLoad("patrouilles_live?select=*&order=patrol_id"),
       tryLoad("absences?select=*&order=created_at.desc"),
       tryLoad("candidatures?select=*&order=created_at.desc"),
+      tryLoad("comptes_agents?select=id,nom,role&order=nom"),
+      tryLoad("logs_service?select=*&order=debut.desc&limit=200"),
     ]);
     patrols      = p;
     absences     = a;
     candidatures = c;
+    comptes      = cp;
+    logsService  = ls;
     syncBadge("✓ En ligne","#4A7F5E");
     // Notifs nouvelles candidatures
     const nvx = candidatures.filter(c=>!c.lu).length;
@@ -702,22 +876,53 @@ async function updatePatrol(patrol_id, field, value) {
     const exists = patrols.find(p=>p.patrol_id===patrol_id);
     const payload = {[field]:value, updated_at:new Date().toISOString(), updated_by: ROLE_LABELS[role]};
     if(exists) {
-      await sb(`patrouilles_live?patrol_id=eq.${patrol_id}`, {method:"PATCH",body:JSON.stringify(payload)});
+      const r = await fetch(SB_URL+"/rest/v1/patrouilles_live?patrol_id=eq."+patrol_id, {
+        method:"PATCH", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+        body:JSON.stringify(payload)
+      });
+      if(!r.ok){ const t=await r.text(); throw new Error(t); }
     } else {
-      await sb("patrouilles_live", {method:"POST",body:JSON.stringify({patrol_id,...payload})});
+      const r = await fetch(SB_URL+"/rest/v1/patrouilles_live", {
+        method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+        body:JSON.stringify({patrol_id,...payload})
+      });
+      if(!r.ok){ const t=await r.text(); throw new Error(t); }
     }
-    // Update local
+    // Update local state without full re-render
     const idx=patrols.findIndex(p=>p.patrol_id===patrol_id);
-    if(idx>=0) Object.assign(patrols[idx],payload); else patrols.push({patrol_id,...payload});
+    if(idx>=0) Object.assign(patrols[idx],payload);
+    else patrols.push({patrol_id,...payload});
     syncBadge("✓ Sauvegardé","#4A7F5E");
-    // Mise à jour heure dans la cellule sans re-render total
-    renderPatrols();
-  } catch(e) { syncBadge("⚠ Erreur","#E74C3C"); }
+    // Update only stats + timestamp cell, not the full table
+    updatePatrolStats();
+    const allRows = document.querySelectorAll("#patrol-table-wrap tbody tr");
+    const PATROL_DEFS = ["centrale","01","02","03","04","cmd"];
+    const rowIdx = PATROL_DEFS.indexOf(patrol_id);
+    if(rowIdx>=0 && allRows[rowIdx]) {
+      const tdUpd = allRows[rowIdx].querySelector(".upd-cell");
+      if(tdUpd) tdUpd.innerHTML = new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+"<br><span style='font-size:8px;color:#1E3348'>"+esc(ROLE_LABELS[role])+"</span>";
+    }
+  } catch(e) {
+    console.error("updatePatrol error:", e);
+    syncBadge("⚠ Erreur : "+e.message,"#E74C3C");
+  }
 }
 function updateStatus(patrol_id, sel) {
   const cls=STATUS_CLS[sel.value]||"s-hors";
   sel.className="status-select "+cls;
   updatePatrol(patrol_id,"statut",sel.value);
+}
+
+function updatePatrolStats() {
+  const active  = patrols.filter(p=>["Disponible","Intervention","Convoi","Formation"].includes(p.statut)).length;
+  const inter   = patrols.filter(p=>p.statut==="Intervention").length;
+  const dispo   = patrols.filter(p=>p.statut==="Disponible").length;
+  const statsEl = document.getElementById("patrol-stats");
+  if(statsEl) statsEl.innerHTML = `
+    <div class="stat-pill"><div class="stat-num" style="color:var(--blue-light)">${active}</div><div class="stat-lbl">Actives</div></div>
+    <div class="stat-pill"><div class="stat-num" style="color:#FF6B4A">${inter}</div><div class="stat-lbl">Interventions</div></div>
+    <div class="stat-pill"><div class="stat-num" style="color:var(--green-light)">${dispo}</div><div class="stat-lbl">Disponibles</div></div>
+    <div class="stat-pill"><div class="stat-num" style="color:var(--text2)">${agents.length}</div><div class="stat-lbl">Agents listés</div></div>`;
 }
 
 // ─── ABSENCES ──────────────────────────────────────────────────────
@@ -827,9 +1032,7 @@ function toggleYN(btn) {
   document.querySelectorAll(`.yn-btn[data-field="${field}"]`).forEach(b=>{b.classList.remove("active");});
   if(!wasActive){btn.classList.add("active");ynState[field]=btn.dataset.val;}
   else{delete ynState[field];}
-  if(field==="licence"){
-    document.getElementById("licence-detail").style.display=(ynState.licence==="O")?"block":"none";
-  }
+
 }
 
 async function soumettreCandidat() {
@@ -847,7 +1050,6 @@ async function soumettreCandidat() {
       email:document.getElementById("cand-email")?.value?.trim()||null,
       discord,
       a_licence:ynState.licence==="O",
-      type_licence:document.getElementById("cand-licence-type")?.value?.trim()||null,
       disponibilites:document.getElementById("cand-dispo")?.value?.trim()||null,
       motivation:motiv,
       statut:"Nouvelle", lu:false
@@ -980,9 +1182,7 @@ function toggleYN(btn) {
   document.querySelectorAll(`.yn-btn[data-field="${field}"]`).forEach(b=>{b.classList.remove("active");});
   if(!wasActive){btn.classList.add("active");ynState[field]=btn.dataset.val;}
   else{delete ynState[field];}
-  if(field==="licence"){
-    document.getElementById("licence-detail").style.display=(ynState.licence==="O")?"block":"none";
-  }
+
 }
 
 
@@ -1042,6 +1242,208 @@ async function markCandRead() {
   if(!unread.length) return;
   try { await sb(`candidatures?id=in.(${unread.join(",")})`,{method:"PATCH",body:JSON.stringify({lu:true})}); } catch(e){}
 }
+
+
+// ─── MON SERVICE ───────────────────────────────────────────────────
+async function initServicePage() {
+  if(!currentAgent) return;
+  // Check if agent has an open service
+  try {
+    const logs = await sb("services_logs?agent_id=eq."+currentAgent.id+"&fin=is.null&select=*&order=debut.desc&limit=1");
+    if(logs && logs.length > 0) {
+      serviceEnCours = { id: logs[0].id, debut: new Date(logs[0].debut) };
+      setServiceUI(true);
+    } else {
+      serviceEnCours = null;
+      setServiceUI(false);
+    }
+    // Load recent logs for this agent
+    const recent = await sb("services_logs?agent_id=eq."+currentAgent.id+"&fin=not.is.null&select=*&order=debut.desc&limit=10");
+    renderMesServices(recent||[]);
+  } catch(e) { console.error("initServicePage:", e); }
+}
+
+function setServiceUI(enService) {
+  const btn = document.getElementById("btn-prise-service");
+  const badge = document.getElementById("service-current-badge");
+  const timer = document.getElementById("service-timer");
+  if(enService) {
+    btn.className = "service-btn service-btn-end";
+    btn.innerHTML = "🔴 Fin de service";
+    badge.innerHTML = '<span class="service-badge">🟢 En service</span>';
+    timer.style.display = "block";
+    clearInterval(serviceTimer);
+    serviceTimer = setInterval(updateElapsed, 1000);
+    updateElapsed();
+  } else {
+    btn.className = "service-btn service-btn-start";
+    btn.innerHTML = "🟢 Prendre le service";
+    badge.innerHTML = '<span style="font-size:15px;font-weight:700;color:var(--text3);">⬛ Hors service</span>';
+    timer.style.display = "none";
+    clearInterval(serviceTimer); serviceTimer=null;
+  }
+}
+
+function updateElapsed() {
+  if(!serviceEnCours) return;
+  const el = document.getElementById("service-elapsed");
+  if(!el) return;
+  const diff = Math.floor((Date.now() - serviceEnCours.debut.getTime()) / 1000);
+  const h = Math.floor(diff/3600).toString().padStart(2,"0");
+  const m = Math.floor((diff%3600)/60).toString().padStart(2,"0");
+  const s = (diff%60).toString().padStart(2,"0");
+  el.textContent = h+":"+m+":"+s;
+}
+
+async function toggleService() {
+  if(!currentAgent) return;
+  if(serviceEnCours) {
+    // Fin de service
+    const fin = new Date();
+    const duree = Math.round((fin - serviceEnCours.debut) / 60000);
+    try {
+      await sb("services_logs?id=eq."+serviceEnCours.id, {
+        method:"PATCH", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+        body:JSON.stringify({ fin: fin.toISOString(), duree_minutes: duree })
+      });
+      serviceEnCours = null;
+      setServiceUI(false);
+      toast("✓ Service terminé — durée : "+fmtDuree(duree));
+      initServicePage();
+    } catch(e) { toast("Erreur fin de service","#E74C3C"); }
+  } else {
+    // Prise de service
+    const debut = new Date();
+    try {
+      const r = await fetch(SB_URL+"/rest/v1/services_logs", {
+        method:"POST", headers:{...H,"Prefer":"return=representation"}, mode:"cors",
+        body:JSON.stringify({ agent_id:currentAgent.id, agent_nom:currentAgent.prenom+" "+currentAgent.nom, debut:debut.toISOString() })
+      });
+      if(!r.ok) throw new Error(await r.text());
+      const rows = await r.json();
+      serviceEnCours = { id: rows[0].id, debut };
+      setServiceUI(true);
+      toast("✓ Prise de service enregistrée");
+      initServicePage();
+    } catch(e) { console.error(e); toast("Erreur prise de service : "+e.message,"#E74C3C"); }
+  }
+}
+
+function fmtDuree(mins) {
+  if(!mins && mins!==0) return "En cours";
+  const h = Math.floor(mins/60);
+  const m = mins%60;
+  return (h>0?h+"h":"")+(m>0?(h>0?" ":"")+m+"min":"")|| "< 1min";
+}
+
+function renderMesServices(logs) {
+  const el = document.getElementById("mes-services-list");
+  if(!el) return;
+  if(!logs.length) { el.innerHTML='<div class="empty"><p>Aucun service enregistré.</p></div>'; return; }
+  el.innerHTML = logs.map(l=>{
+    const debut = new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    const fin   = l.fin ? new Date(l.fin).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : "En cours";
+    return `<div class="log-item">
+      <div><div class="log-dates">🕐 ${debut} → ${fin}</div></div>
+      <div class="${l.fin?"log-duree":"log-en-cours"}">${l.fin?fmtDuree(l.duree_minutes):"En cours"}</div>
+    </div>`;
+  }).join("");
+}
+
+// ─── LOGS PDG/RESPONSABLE ──────────────────────────────────────────
+async function loadLogs() {
+  try {
+    const logs = await sb("services_logs?select=*&order=debut.desc&limit=100");
+    allLogs = logs||[];
+    renderLogs();
+  } catch(e) { toast("Erreur chargement logs","#E74C3C"); }
+}
+
+function renderLogs() {
+  const el = document.getElementById("logs-list");
+  const statsEl = document.getElementById("logs-stats");
+  if(!el) return;
+  if(!allLogs.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Aucun log de service.</p></div>'; return; }
+
+  const enCours = allLogs.filter(l=>!l.fin).length;
+  const totalMins = allLogs.filter(l=>l.fin).reduce((s,l)=>s+(l.duree_minutes||0),0);
+  if(statsEl) statsEl.innerHTML=`
+    <div class="stat-pill"><div class="stat-num" style="color:#52D98B">${enCours}</div><div class="stat-lbl">En service</div></div>
+    <div class="stat-pill"><div class="stat-num" style="color:var(--blue-light)">${allLogs.filter(l=>l.fin).length}</div><div class="stat-lbl">Services terminés</div></div>
+    <div class="stat-pill"><div class="stat-num" style="color:var(--orange-light)">${fmtDuree(totalMins)}</div><div class="stat-lbl">Total heures</div></div>`;
+
+  el.innerHTML = allLogs.map(l=>{
+    const debut = new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    const fin   = l.fin ? new Date(l.fin).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : null;
+    return `<div class="log-item">
+      <div>
+        <div class="log-agent">${esc(l.agent_nom)}</div>
+        <div class="log-dates">Prise de service le ${debut}${fin?" → fin à "+fin:""}</div>
+      </div>
+      ${l.fin
+        ? `<div class="log-duree">${fmtDuree(l.duree_minutes)}</div>`
+        : `<div class="log-en-cours">🟢 En service</div>`}
+    </div>`;
+  }).join("");
+}
+
+// ─── ADMIN COMPTES ─────────────────────────────────────────────────
+async function loadComptes() {
+  try {
+    allComptes = await sb("agents_comptes?select=*&order=nom");
+    renderComptes();
+  } catch(e) { toast("Erreur chargement comptes","#E74C3C"); }
+}
+
+function renderComptes() {
+  const el = document.getElementById("comptes-list");
+  const cnt = document.getElementById("comptes-count");
+  if(!el) return;
+  if(cnt) cnt.textContent = allComptes.length+" compte(s)";
+  if(!allComptes.length){ el.innerHTML='<div class="empty"><p>Aucun compte créé.</p></div>'; return; }
+  const roleLabels = {agent:"Agent de sécurité", responsable:"Responsable"};
+  el.innerHTML = allComptes.map(c=>`
+    <div class="admin-compte">
+      <div class="admin-compte-info">
+        <div class="ac-nom">${esc(c.prenom)} ${esc(c.nom)}</div>
+        <div class="ac-role">${roleLabels[c.role]||c.role}</div>
+        <div class="ac-pin">PIN : ${"•".repeat((c.pin||"").length)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="supprimerCompte('${c.id}')">🗑</button>
+    </div>`).join("");
+}
+
+async function creerCompte() {
+  const prenom = document.getElementById("ac-prenom").value.trim();
+  const nom    = document.getElementById("ac-nom").value.trim();
+  const pin    = document.getElementById("ac-pin").value.trim();
+  const role_c = document.getElementById("ac-role").value;
+  if(!prenom||!nom||!pin){ toast("Remplissez tous les champs.","#E74C3C"); return; }
+  if(pin.length<4){ toast("Le PIN doit faire 4 chiffres.","#E74C3C"); return; }
+  if(allComptes.some(c=>c.pin===pin)){ toast("Ce PIN est déjà utilisé.","#E74C3C"); return; }
+  try {
+    const r = await fetch(SB_URL+"/rest/v1/agents_comptes",{
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body:JSON.stringify({prenom,nom,pin,role:role_c})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    toast("✓ Compte créé pour "+prenom+" "+nom);
+    document.getElementById("ac-prenom").value="";
+    document.getElementById("ac-nom").value="";
+    document.getElementById("ac-pin").value="";
+    await loadComptes();
+  } catch(e){ toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+async function supprimerCompte(id) {
+  if(!confirm("Supprimer ce compte ? Les logs de service associés seront aussi supprimés.")) return;
+  try {
+    await sb("agents_comptes?id=eq."+id,{method:"DELETE"});
+    toast("✓ Compte supprimé");
+    await loadComptes();
+  } catch(e){ toast("Erreur suppression","#E74C3C"); }
+}
+
 </script>
 </body>
 </html>
