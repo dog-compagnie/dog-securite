@@ -624,7 +624,7 @@ function backToStep1() {
 const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
-  {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent"],                             section:"Opérations"},
+  {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg"],         section:"Opérations"},
   {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badge:true},
@@ -664,6 +664,10 @@ function goPage(pageId) {
   if(pageId==="logs-service")      loadLogs();
   if(pageId==="admin-comptes")     loadComptes();
   if(pageId==="mon-service")       initServicePage();
+  if(pageId==="absence-form") {
+    const nomEl = document.getElementById("abs-nom");
+    if(nomEl && !nomEl.value && currentAgent) nomEl.value = currentAgent.prenom+" "+currentAgent.nom;
+  }
   if(pageId==="candidatures")    { renderCandidatures(); markCandRead(); }
 }
 
@@ -1455,4 +1459,5 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
 
