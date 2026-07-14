@@ -368,12 +368,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         </div>
         <div class="field">
           <label>Motif *</label>
-          <select id="abs-motif">
-            <option value="">— Sélectionner —</option>
-            <option>Personnel</option>
-            <option>Médical</option>
-            <option>Autre</option>
-          </select>
+          <input id="abs-motif" placeholder="Indiquez le motif de votre absence…" maxlength="120">
         </div>
         <div class="field"><label>Précisions (optionnel)</label><textarea id="abs-detail" placeholder="Informations complémentaires…" rows="3"></textarea></div>
         <button class="btn btn-primary btn-full" onclick="soumettreAbsence()" style="margin-top:6px;">
@@ -942,7 +937,7 @@ async function soumettreAbsence() {
   const nom=document.getElementById("abs-nom").value.trim();
   const debut=document.getElementById("abs-debut").value;
   const fin=document.getElementById("abs-fin").value;
-  const motif=document.getElementById("abs-motif").value;
+  const motif=document.getElementById("abs-motif").value.trim();
   if(!nom||!debut||!fin||!motif){toast("Merci de remplir tous les champs obligatoires.","#E74C3C");return;}
   if(fin<debut){toast("La date de fin doit être après la date de début.","#E74C3C");return;}
   try {
@@ -1092,7 +1087,7 @@ async function soumettreAbsence() {
   const nom=document.getElementById("abs-nom").value.trim();
   const debut=document.getElementById("abs-debut").value;
   const fin=document.getElementById("abs-fin").value;
-  const motif=document.getElementById("abs-motif").value;
+  const motif=document.getElementById("abs-motif").value.trim();
   if(!nom||!debut||!fin||!motif){toast("Merci de remplir tous les champs obligatoires.","#E74C3C");return;}
   if(fin<debut){toast("La date de fin doit être après la date de début.","#E74C3C");return;}
   try {
