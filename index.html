@@ -421,6 +421,13 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         </button>
       </div>
     </div>
+
+    <div class="card" style="max-width:560px;margin-top:16px;">
+      <div class="card-hdr"><div class="card-hdr-title">📋 Mes déclarations en cours</div></div>
+      <div class="card-body" id="mes-absences-list">
+        <div class="empty"><p>Chargement…</p></div>
+      </div>
+    </div>
   </div>
 
   <!-- PAGE ABSENCES (gestion) -->
@@ -868,6 +875,7 @@ function goPage(pageId) {
   if(pageId==="absence-form") {
     const nomEl = document.getElementById("abs-nom");
     if(nomEl && !nomEl.value && currentAgent) nomEl.value = currentAgent.prenom+" "+currentAgent.nom;
+    renderMesAbsences();
   }
   if(pageId==="candidatures")      renderCandidatures();
 }
@@ -1111,6 +1119,7 @@ async function loadAll() {
       if(pid==="patrouilles") renderPatrols();
       if(pid==="absences-gestion") renderAbsences();
       if(pid==="candidatures") renderCandidatures();
+      if(pid==="absence-form") renderMesAbsences();
     }
   } catch(e) {
     syncBadge("⚠ Hors ligne","#F0A840");
@@ -1471,6 +1480,30 @@ async function soumettreAbsence() {
     toast("Erreur lors de l'envoi : "+e.message,"#E74C3C");
     syncBadge("⚠ Erreur","#E74C3C");
   }
+}
+
+function renderMesAbsences() {
+  const el = document.getElementById("mes-absences-list");
+  if(!el) return;
+  if(!currentAgent) { el.innerHTML = '<div class="empty"><p>Connectez-vous avec votre compte individuel pour voir vos déclarations.</p></div>'; return; }
+  const me = identityLabel();
+  const today = new Date().toISOString().slice(0,10);
+  const mine = absences
+    .filter(a=>a.agent_nom===me && a.date_fin>=today)
+    .sort((a,b)=>a.date_debut.localeCompare(b.date_debut));
+  if(!mine.length) { el.innerHTML = '<div class="empty"><p>Aucune absence en cours ou à venir.</p></div>'; return; }
+  const sc = {"En attente":"as-attente","Validée":"as-validee","Refusée":"as-refusee","Annulée":"as-refusee"};
+  el.innerHTML = mine.map(a=>{
+    const dd = new Date(a.date_debut+"T12:00:00").toLocaleDateString("fr-FR");
+    const df = new Date(a.date_fin+"T12:00:00").toLocaleDateString("fr-FR");
+    return `<div class="absence-item">
+      <div class="absence-info">
+        <div class="absence-dates">📅 Du ${dd} au ${df}</div>
+        <div class="absence-motif">Motif : <strong>${esc(a.motif)}</strong></div>
+      </div>
+      <span class="absence-statut ${sc[a.statut]||"as-attente"}">${a.statut||"En attente"}</span>
+    </div>`;
+  }).join("");
 }
 
 function renderAbsences() {
@@ -2005,4 +2038,5 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
 
