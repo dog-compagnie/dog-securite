@@ -27,6 +27,14 @@ input,select,textarea{font-family:inherit;}
 
 /* ═══ LOGIN SCREEN ═══ */
 #screen-login{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,0.97);backdrop-filter:blur(20px);}
+
+/* ═══ POPUP ALERTE ADMIN ═══ */
+.alert-popup{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,0.88);backdrop-filter:blur(8px);}
+.alert-popup.show{display:flex;}
+.alert-popup-box{background:var(--bg2);border:1px solid rgba(211,84,0,0.4);border-radius:18px;padding:32px 28px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+.alert-popup-icon{font-size:40px;margin-bottom:10px;}
+.alert-popup-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:12px;}
+.alert-popup-message{font-size:14px;color:var(--text);line-height:1.6;margin-bottom:20px;white-space:pre-wrap;}
 .login-box{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:40px 36px;width:90%;max-width:420px;text-align:center;}
 .login-logo{font-size:48px;margin-bottom:16px;}
 .login-title{font-size:24px;font-weight:800;color:#fff;margin-bottom:6px;}
@@ -271,6 +279,17 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 </head>
 <body>
 <div class="bg"></div>
+
+<!-- ═══ POPUP ALERTE ADMIN ═══ -->
+<div id="alert-popup" class="alert-popup">
+  <div class="alert-popup-box">
+    <div class="alert-popup-icon">📢</div>
+    <div class="alert-popup-title">Message de l'administration</div>
+    <div class="alert-popup-message" id="alert-popup-message"></div>
+    <button class="btn btn-primary btn-full" onclick="refreshFromAlert()">🔄 Rafraîchir la page</button>
+    <button class="btn btn-ghost btn-full" onclick="dismissAlertPopup()" style="margin-top:8px;">Fermer</button>
+  </div>
+</div>
 
 <!-- ═══ LOGIN ═══ -->
 <div id="screen-login">
@@ -548,6 +567,21 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <div class="page" id="page-journal">
     <div class="page-title">Journal <span>d'activité</span></div>
     <div class="page-sub">Historique complet des actions : candidatures, absences, patrouilles, comptes.</div>
+
+    <div class="card" style="max-width:620px;">
+      <div class="card-hdr"><div class="card-hdr-title">📢 Diffuser une alerte</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Message (popup affiché à tous les utilisateurs connectés)</label>
+          <textarea id="alerte-msg" rows="3" placeholder="Ex : Une mise à jour a été déployée, merci de rafraîchir la page."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="envoyerAlerte()">📤 Envoyer à tout le monde</button>
+          <button class="btn btn-danger" onclick="desactiverAlerte()">🗑 Retirer l'alerte active</button>
+        </div>
+      </div>
+    </div>
+
     <div class="stats-bar" id="journal-stats"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="journal-filter-bar"></div>
     <div class="card">
@@ -621,6 +655,9 @@ const JOURNAL_TYPES = {
   compte_cree:          {color:"#5DADE2", label:"Compte"},
   compte_supprime:      {color:"#F08080", label:"Compte"},
   service_log_suppr:    {color:"#F08080", label:"Service"},
+  service_force_fin:    {color:"#F0A840", label:"Service"},
+  service_modif:        {color:"#5DADE2", label:"Service"},
+  alerte_envoyee:        {color:"#D35400", label:"Alerte"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
 function currentActeurLabel() {
@@ -633,6 +670,49 @@ async function logActivity(type, message, acteur) {
       body: JSON.stringify({type, message, acteur: acteur || currentActeurLabel()})
     });
   } catch(e) { console.warn("logActivity error:", e.message); }
+}
+
+// ─── ALERTE DIFFUSÉE (Admin) ────────────────────────────────────────
+let _currentAlertId = null;
+function checkAlerte(alert) {
+  if(!alert) return;
+  const dismissed = localStorage.getItem("dog_alert_dismissed_id");
+  if(String(alert.id)===dismissed) return;
+  _currentAlertId = alert.id;
+  const msgEl = document.getElementById("alert-popup-message");
+  const popup = document.getElementById("alert-popup");
+  if(msgEl) msgEl.textContent = alert.message;
+  if(popup) popup.classList.add("show");
+}
+function dismissAlertPopup() {
+  if(_currentAlertId) localStorage.setItem("dog_alert_dismissed_id", String(_currentAlertId));
+  document.getElementById("alert-popup")?.classList.remove("show");
+}
+function refreshFromAlert() {
+  if(_currentAlertId) localStorage.setItem("dog_alert_dismissed_id", String(_currentAlertId));
+  location.reload();
+}
+async function envoyerAlerte() {
+  const inp = document.getElementById("alerte-msg");
+  const msg = inp.value.trim();
+  if(!msg) { toast("Merci d'écrire un message.","#E74C3C"); return; }
+  try {
+    await sb("alertes?actif=eq.true", {method:"PATCH", body:JSON.stringify({actif:false})});
+    const r = await fetch(SB_URL+"/rest/v1/alertes", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({message:msg, actif:true, created_by:identityLabel()})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    logActivity("alerte_envoyee", `Alerte diffusée : "${msg}"`);
+    toast("✓ Alerte envoyée à tous les utilisateurs connectés");
+    inp.value="";
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function desactiverAlerte() {
+  try {
+    await sb("alertes?actif=eq.true", {method:"PATCH", body:JSON.stringify({actif:false})});
+    toast("✓ Alerte retirée");
+  } catch(e) { toast("Erreur lors du retrait de l'alerte","#E74C3C"); }
 }
 
 let allLogsJournal = [];
@@ -650,7 +730,7 @@ function renderJournal() {
   const statsEl = document.getElementById("journal-stats");
   const filterEl = document.getElementById("journal-filter-bar");
   if(!el) return;
-  const cats = ["Candidature","Absence","Patrouille","Compte","Service"];
+  const cats = ["Candidature","Absence","Patrouille","Compte","Service","Alerte"];
   if(statsEl) {
     statsEl.innerHTML = cats.map(cat=>{
       const n = allLogsJournal.filter(l=>journalMeta(l.type).label===cat).length;
@@ -701,6 +781,8 @@ let serviceEnCours = null; // { id, debut } current service
 let serviceTimer = null;
 let allComptes = []; // cached agent accounts
 let allLogs = []; // cached service logs
+let mesServicesCache = []; // cached "Mon service" history (self)
+let _editingLogId = null; // id of the service log currently being time-corrected
 
 // ─── LOGIN ─────────────────────────────────────────────────────────
 function selectRole(r) {
@@ -1004,11 +1086,12 @@ async function loadAll() {
       try { const r = await sb(path); return r||[]; }
       catch(e) { console.warn("Load failed:", path, e.message); return []; }
     };
-    const [p,a,c,ag] = await Promise.all([
+    const [p,a,c,ag,al] = await Promise.all([
       tryLoad("patrouilles_live?select=*&order=patrol_id"),
       tryLoad("absences?select=*&order=created_at.desc"),
       tryLoad("candidatures?select=*&order=created_at.desc"),
       tryLoad("agents_liste?select=nom&order=nom"),
+      tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1"),
     ]);
     patrols      = p;
     absences     = a;
@@ -1016,6 +1099,7 @@ async function loadAll() {
     agents       = ag.map(x=>x.nom).sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
     syncBadge("✓ En ligne","#4A7F5E");
     updateNotifBadges();
+    checkAlerte(al && al[0] ? al[0] : null);
     // Re-render page active
     const activePage = document.querySelector(".page.active");
     if(activePage) {
@@ -1521,19 +1605,17 @@ async function suppCand(id) {
 // ─── MON SERVICE ───────────────────────────────────────────────────
 async function initServicePage() {
   if(!currentAgent) return;
-  // Check if agent has an open service
   try {
-    const logs = await sb("services_logs?agent_id=eq."+currentAgent.id+"&fin=is.null&select=*&order=debut.desc&limit=1");
-    if(logs && logs.length > 0) {
-      serviceEnCours = { id: logs[0].id, debut: new Date(logs[0].debut) };
+    const logs = await sb("services_logs?agent_id=eq."+currentAgent.id+"&select=*&order=debut.desc&limit=11");
+    const ongoing = (logs||[]).find(l=>!l.fin);
+    if(ongoing) {
+      serviceEnCours = { id: ongoing.id, debut: new Date(ongoing.debut) };
       setServiceUI(true);
     } else {
       serviceEnCours = null;
       setServiceUI(false);
     }
-    // Load recent logs for this agent
-    const recent = await sb("services_logs?agent_id=eq."+currentAgent.id+"&fin=not.is.null&select=*&order=debut.desc&limit=10");
-    renderMesServices(recent||[]);
+    renderMesServices((logs||[]).slice(0,10));
   } catch(e) { console.error("initServicePage:", e); }
 }
 
@@ -1610,16 +1692,81 @@ function fmtDuree(mins) {
   return (h>0?h+"h":"")+(m>0?(h>0?" ":"")+m+"min":"")|| "< 1min";
 }
 
+function toDatetimeLocalValue(d) {
+  const dt = new Date(d);
+  const tzOffset = dt.getTimezoneOffset()*60000;
+  return new Date(dt-tzOffset).toISOString().slice(0,16);
+}
+
+function startEditFin(id) {
+  _editingLogId = id;
+  renderMesServices(mesServicesCache);
+  renderLogs();
+}
+function cancelEditFin() {
+  _editingLogId = null;
+  renderMesServices(mesServicesCache);
+  renderLogs();
+}
+async function saveEditFin(id) {
+  const inp = document.getElementById("edit-fin-"+id);
+  if(!inp || !inp.value) { toast("Merci de choisir une date et une heure.","#E74C3C"); return; }
+  const newFin = new Date(inp.value);
+  const log = mesServicesCache.find(x=>String(x.id)===String(id)) || allLogs.find(x=>String(x.id)===String(id));
+  if(!log) { toast("Log introuvable","#E74C3C"); return; }
+  const debut = new Date(log.debut);
+  if(newFin<=debut) { toast("L'heure de fin doit être après le début du service.","#E74C3C"); return; }
+  const duree = Math.round((newFin-debut)/60000);
+  try {
+    await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({fin:newFin.toISOString(),duree_minutes:duree})});
+    logActivity("service_modif", `Heure de fin du service de ${log.agent_nom} corrigée manuellement (${fmtDuree(duree)})`);
+    toast("✓ Heure de fin mise à jour");
+    _editingLogId = null;
+    if(serviceEnCours && String(serviceEnCours.id)===String(id)) { serviceEnCours=null; setServiceUI(false); }
+    if(document.getElementById("page-mon-service")?.classList.contains("active")) initServicePage();
+    if(document.getElementById("page-logs-service")?.classList.contains("active")) loadLogs();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+async function forceEndService(id) {
+  const l = allLogs.find(x=>String(x.id)===String(id));
+  if(!l) return;
+  if(!confirm(`Terminer maintenant le service de ${l.agent_nom} ?`)) return;
+  const fin = new Date();
+  const duree = Math.round((fin-new Date(l.debut))/60000);
+  try {
+    await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({fin:fin.toISOString(),duree_minutes:duree})});
+    logActivity("service_force_fin", `Service de ${l.agent_nom} terminé de force par ${identityLabel()}`);
+    toast("✓ Service terminé");
+    await loadLogs();
+  } catch(e) { toast("Erreur","#E74C3C"); }
+}
+
 function renderMesServices(logs) {
+  mesServicesCache = logs;
   const el = document.getElementById("mes-services-list");
   if(!el) return;
   if(!logs.length) { el.innerHTML='<div class="empty"><p>Aucun service enregistré.</p></div>'; return; }
   el.innerHTML = logs.map(l=>{
+    if(_editingLogId===l.id) {
+      return `<div class="log-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div class="log-dates">🕐 Début : ${new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+        <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;">Heure de fin corrigée</label>
+        <input type="datetime-local" id="edit-fin-${l.id}" value="${toDatetimeLocalValue(l.fin||new Date())}" style="background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.3);border-radius:8px;color:#fff;font-size:12px;padding:7px 10px;">
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-success btn-sm" onclick="saveEditFin('${l.id}')">✓ Valider</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditFin()">✕ Annuler</button>
+        </div>
+      </div>`;
+    }
     const debut = new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
     const fin   = l.fin ? new Date(l.fin).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : "En cours";
     return `<div class="log-item">
       <div><div class="log-dates">🕐 ${debut} → ${fin}</div></div>
-      <div class="${l.fin?"log-duree":"log-en-cours"}">${l.fin?fmtDuree(l.duree_minutes):"En cours"}</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="${l.fin?"log-duree":"log-en-cours"}">${l.fin?fmtDuree(l.duree_minutes):"En cours"}</div>
+        <button class="btn btn-ghost btn-sm" onclick="startEditFin('${l.id}')" title="Corriger l'heure de fin (oubli, erreur…)">✏️</button>
+      </div>
     </div>`;
   }).join("");
 }
@@ -1650,15 +1797,29 @@ function renderLogs() {
   if(!el) return;
   if(!allLogs.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Aucun log de service.</p></div>'; return; }
 
-  const enCours = allLogs.filter(l=>!l.fin).length;
+  const enCoursList = allLogs.filter(l=>!l.fin);
   const totalMins = allLogs.filter(l=>l.fin).reduce((s,l)=>s+(l.duree_minutes||0),0);
   if(statsEl) statsEl.innerHTML=`
-    <div class="stat-pill"><div class="stat-num" style="color:#52D98B">${enCours}</div><div class="stat-lbl">En service</div></div>
+    <div class="stat-pill"><div class="stat-num" style="color:#52D98B">${enCoursList.length}</div><div class="stat-lbl">En service</div></div>
     <div class="stat-pill"><div class="stat-num" style="color:var(--blue-light)">${allLogs.filter(l=>l.fin).length}</div><div class="stat-lbl">Services terminés</div></div>
     <div class="stat-pill"><div class="stat-num" style="color:var(--orange-light)">${fmtDuree(totalMins)}</div><div class="stat-lbl">Total heures</div></div>`;
 
+  const canManage = (role==="responsable"||role==="pdg"||role==="admin");
   const canDelete = role==="admin";
-  el.innerHTML = allLogs.map(l=>{
+
+  function renderOne(l) {
+    if(_editingLogId===l.id) {
+      return `<div class="log-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div class="log-agent">${esc(l.agent_nom)}</div>
+        <div class="log-dates">Début : ${new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+        <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;">Heure de fin corrigée</label>
+        <input type="datetime-local" id="edit-fin-${l.id}" value="${toDatetimeLocalValue(l.fin||new Date())}" style="background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.3);border-radius:8px;color:#fff;font-size:12px;padding:7px 10px;">
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-success btn-sm" onclick="saveEditFin('${l.id}')">✓ Valider</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditFin()">✕ Annuler</button>
+        </div>
+      </div>`;
+    }
     const debut = new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
     const fin   = l.fin ? new Date(l.fin).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : null;
     return `<div class="log-item">
@@ -1666,14 +1827,25 @@ function renderLogs() {
         <div class="log-agent">${esc(l.agent_nom)}</div>
         <div class="log-dates">Prise de service le ${debut}${fin?" → fin à "+fin:""}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         ${l.fin
           ? `<div class="log-duree">${fmtDuree(l.duree_minutes)}</div>`
           : `<div class="log-en-cours">🟢 En service</div>`}
+        ${canManage && !l.fin ? `<button class="btn btn-danger btn-sm" onclick="forceEndService('${l.id}')" title="Terminer maintenant">⏹ Terminer</button>` : ""}
+        ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="startEditFin('${l.id}')" title="Corriger l'heure de fin">✏️</button>` : ""}
         ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="deleteLog('${l.id}')">🗑</button>` : ""}
       </div>
     </div>`;
-  }).join("");
+  }
+
+  const activeBlock = enCoursList.length ? `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#A8CFEA;margin-bottom:8px;">🟢 En service actuellement (${enCoursList.length})</div>
+      ${enCoursList.map(renderOne).join("")}
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#A8CFEA;margin:14px 0 8px;">📋 Historique</div>` : "";
+
+  el.innerHTML = activeBlock + allLogs.map(renderOne).join("");
 }
 
 // ─── ADMIN COMPTES ─────────────────────────────────────────────────
@@ -1739,3 +1911,4 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
