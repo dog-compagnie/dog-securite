@@ -58,6 +58,9 @@ input,select,textarea{font-family:inherit;}
 .sync-badge{font-size:11px;padding:3px 9px;border-radius:12px;background:rgba(30,132,73,0.1);border:1px solid rgba(30,132,73,0.2);color:#4A7F5E;}
 .logout-btn{background:rgba(255,255,255,0.06);color:var(--text2);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;}
 .logout-btn:hover{background:rgba(255,255,255,0.1);color:#fff;}
+.hamburger-btn{display:none;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:6px 10px;font-size:16px;line-height:1;margin-right:4px;flex-shrink:0;}
+.sidenav-backdrop{display:none;position:fixed;top:58px;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:80;}
+.sidenav-backdrop.show{display:block;}
 .notif-bell{position:relative;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;font-size:14px;color:var(--text2);}
 .notif-bell.has-notif{color:var(--orange-light);border-color:rgba(211,84,0,0.3);background:rgba(211,84,0,0.1);}
 .notif-dot{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:var(--orange);border-radius:50%;font-size:9px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;}
@@ -275,6 +278,49 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .journal-msg{font-size:12px;color:var(--text);line-height:1.4;}
 .journal-meta{font-size:10px;color:var(--text3);margin-top:3px;}
 .journal-time{font-size:10px;color:var(--text2);white-space:nowrap;}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE — mobile & tablette uniquement (≤860px)
+   N'affecte jamais l'affichage desktop, tout est dans ce bloc.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 860px) {
+  .hamburger-btn{display:block;}
+  .topbar{padding:0 10px;gap:8px;}
+  .topbar-logo{font-size:12px;}
+  .topbar-role{display:none;}
+  .sync-badge{display:none;}
+
+  .sidenav{
+    transform:translateX(-105%);
+    transition:transform 0.25s ease;
+    width:230px;
+    box-shadow:8px 0 30px rgba(0,0,0,0.5);
+    z-index:150;
+  }
+  .sidenav.open{transform:translateX(0);}
+
+  .main{margin-left:0;}
+  .page{padding:16px;}
+  .page-title{font-size:19px;}
+
+  .stats-bar{gap:8px;}
+  .stat-pill{min-width:calc(50% - 4px);padding:10px 12px;}
+
+  .role-grid{grid-template-columns:1fr;}
+  .field-row-2,.field-row-3{grid-template-columns:1fr;}
+  .admin-grid{grid-template-columns:1fr!important;}
+
+  .login-box{padding:28px 20px;}
+
+  .notif-panel{width:min(92vw,340px);right:-46px;}
+
+  .candidature-form{max-width:100%;}
+}
+
+@media (max-width: 480px) {
+  .stat-pill{min-width:100%;}
+  .cand-top,.cand-statut-btns{flex-direction:column;align-items:flex-start!important;}
+}
 </style>
 </head>
 <body>
@@ -345,6 +391,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 <div id="app" style="display:none;">
 
 <div class="topbar">
+  <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidenav()" aria-label="Menu">☰</button>
   <div class="topbar-logo">Dog <span>Sécurité</span></div>
   <div class="topbar-role" id="topbar-role"></div>
   <div class="topbar-right">
@@ -363,6 +410,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   </div>
 </div>
 
+<div class="sidenav-backdrop" id="sidenav-backdrop" onclick="closeSidenav()"></div>
 <div class="sidenav" id="sidenav"></div>
 
 <div class="main">
@@ -531,7 +579,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <div class="page" id="page-admin-comptes">
     <div class="page-title">Gestion des <span>comptes</span></div>
     <div class="page-sub">Créez et gérez les comptes des agents avec leur PIN individuel.</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
+    <div class="admin-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
       <div>
         <div class="card">
           <div class="card-hdr"><div class="card-hdr-title">➕ Créer un compte</div></div>
@@ -858,6 +906,15 @@ function renderSidenav() {
   updateNotifBadges();
 }
 
+function toggleSidenav() {
+  document.getElementById("sidenav")?.classList.toggle("open");
+  document.getElementById("sidenav-backdrop")?.classList.toggle("show");
+}
+function closeSidenav() {
+  document.getElementById("sidenav")?.classList.remove("open");
+  document.getElementById("sidenav-backdrop")?.classList.remove("show");
+}
+
 function goPage(pageId) {
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   const target = document.getElementById("page-"+pageId);
@@ -865,6 +922,7 @@ function goPage(pageId) {
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   const navBtn = document.getElementById("nav-"+pageId);
   if(navBtn) navBtn.classList.add("active");
+  closeSidenav();
 
   if(pageId==="patrouilles")       renderPatrols();
   if(pageId==="absences-gestion")  renderAbsences();
@@ -1042,6 +1100,7 @@ function logout() {
   clearInterval(_refreshInterval); _refreshInterval=null;
   clearInterval(serviceTimer); serviceTimer=null;
   role=null; currentCompte=null; currentAgent=null; serviceEnCours=null;
+  closeSidenav();
   document.getElementById("app").style.display="none";
   document.getElementById("screen-login").style.display="flex";
   backToStep1();
@@ -2038,5 +2097,3 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
-
-
