@@ -687,27 +687,38 @@ function goPage(pageId) {
 }
 
 // ─── NOTIFICATIONS (nouvelle entrée + changement de statut) ─────────
-// Suivi PARTAGÉ côté Supabase (colonne vu_statut sur candidatures/absences) :
-// vu par n'importe quel Responsable/PDG/Admin = vu pour tout le monde.
+// Suivi PAR PERSONNE côté Supabase (colonne vus_par, jsonb, sur candidatures/absences) :
+// chaque compte (PDG, Responsable) — ou "admin" pour le PIN fixe — a son propre statut "vu".
+// Voir une notification sur un appareil ne la marque PAS comme lue pour les autres comptes.
 // Une notification n'est marquée comme lue QUE si on clique dessus (ou "tout marquer comme lu") —
 // le simple fait d'ouvrir la page de gestion ne la fait plus disparaître.
+function viewerKey() {
+  if(role==="admin") return "admin";
+  if(currentCompte && currentCompte.id) return String(currentCompte.id);
+  return null;
+}
+
 function getNotifications() {
   const canSee = (role==="responsable"||role==="pdg"||role==="admin");
   if(!canSee) return [];
+  const vk = viewerKey();
+  if(!vk) return [];
   const list = [];
   candidatures.forEach(c=>{
     const cur = c.statut||"Nouvelle";
-    if(c.vu_statut===undefined || c.vu_statut===null) {
+    const seen = (c.vus_par||{})[vk];
+    if(seen===undefined) {
       list.push({type:"cand", id:c.id, icon:"📨", text:`Nouvelle candidature de ${c.prenom||""} ${c.nom||""}`.trim(), time:c.created_at});
-    } else if(c.vu_statut!==cur) {
+    } else if(seen!==cur) {
       list.push({type:"cand", id:c.id, icon:"📨", text:`La candidature de ${c.prenom||""} ${c.nom||""} est passée en ${cur.toLowerCase()}`, time:c.created_at});
     }
   });
   absences.forEach(a=>{
     const cur = a.statut||"En attente";
-    if(a.vu_statut===undefined || a.vu_statut===null) {
+    const seen = (a.vus_par||{})[vk];
+    if(seen===undefined) {
       list.push({type:"abs", id:a.id, icon:"📅", text:`Nouvelle absence déclarée par ${a.agent_nom||"un agent"}`, time:a.created_at});
-    } else if(a.vu_statut!==cur) {
+    } else if(seen!==cur) {
       list.push({type:"abs", id:a.id, icon:"📅", text:`L'absence de ${a.agent_nom||"un agent"} est passée en ${cur.toLowerCase()}`, time:a.created_at});
     }
   });
@@ -760,15 +771,21 @@ document.addEventListener("click", (e)=>{
 });
 
 async function markOneSeen(type, id) {
+  const vk = viewerKey();
+  if(!vk) return;
   if(type==="cand") {
     const c = candidatures.find(x=>String(x.id)===String(id));
     if(!c) return;
-    try { await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vu_statut:c.statut||"Nouvelle"})}); c.vu_statut = c.statut||"Nouvelle"; }
+    const vus = Object.assign({}, c.vus_par||{});
+    vus[vk] = c.statut||"Nouvelle";
+    try { await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); c.vus_par = vus; }
     catch(e) { console.warn("markOneSeen cand error:", e.message); }
   } else {
     const a = absences.find(x=>String(x.id)===String(id));
     if(!a) return;
-    try { await sb(`absences?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vu_statut:a.statut||"En attente"})}); a.vu_statut = a.statut||"En attente"; }
+    const vus = Object.assign({}, a.vus_par||{});
+    vus[vk] = a.statut||"En attente";
+    try { await sb(`absences?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); a.vus_par = vus; }
     catch(e) { console.warn("markOneSeen abs error:", e.message); }
   }
 }
@@ -1578,3 +1595,4 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
