@@ -620,6 +620,7 @@ const JOURNAL_TYPES = {
   patrouille_maj:       {color:"#52D98B", label:"Patrouille"},
   compte_cree:          {color:"#5DADE2", label:"Compte"},
   compte_supprime:      {color:"#F08080", label:"Compte"},
+  service_log_suppr:    {color:"#F08080", label:"Service"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
 function currentActeurLabel() {
@@ -649,7 +650,7 @@ function renderJournal() {
   const statsEl = document.getElementById("journal-stats");
   const filterEl = document.getElementById("journal-filter-bar");
   if(!el) return;
-  const cats = ["Candidature","Absence","Patrouille","Compte"];
+  const cats = ["Candidature","Absence","Patrouille","Compte","Service"];
   if(statsEl) {
     statsEl.innerHTML = cats.map(cat=>{
       const n = allLogsJournal.filter(l=>journalMeta(l.type).label===cat).length;
@@ -1139,11 +1140,14 @@ async function removeAgent(name) {
   }
 }
 
+function identityLabel() {
+  return currentAgent ? (currentAgent.prenom+" "+currentAgent.nom) : (ROLE_LABELS[role]||role);
+}
 async function updatePatrol(patrol_id, field, value) {
   syncBadge("⏳ Sauvegarde…","#5D8AA8");
   try {
     const exists = patrols.find(p=>p.patrol_id===patrol_id);
-    const payload = {[field]:value, updated_at:new Date().toISOString(), updated_by: ROLE_LABELS[role]};
+    const payload = {[field]:value, updated_at:new Date().toISOString(), updated_by: identityLabel()};
     if(exists) {
       const r = await fetch(SB_URL+"/rest/v1/patrouilles_live?patrol_id=eq."+patrol_id, {
         method:"PATCH", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
@@ -1170,7 +1174,7 @@ async function updatePatrol(patrol_id, field, value) {
     const rowIdx = PATROL_DEFS.indexOf(patrol_id);
     if(rowIdx>=0 && allRows[rowIdx]) {
       const tdUpd = allRows[rowIdx].querySelector(".upd-cell");
-      if(tdUpd) tdUpd.innerHTML = new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+"<br><span style='font-size:8px;color:#1E3348'>"+esc(ROLE_LABELS[role])+"</span>";
+      if(tdUpd) tdUpd.innerHTML = new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+"<br><span style='font-size:8px;color:#1E3348'>"+esc(identityLabel())+"</span>";
     }
   } catch(e) {
     console.error("updatePatrol error:", e);
@@ -1629,6 +1633,17 @@ async function loadLogs() {
   } catch(e) { toast("Erreur chargement logs","#E74C3C"); }
 }
 
+async function deleteLog(id) {
+  if(!confirm("Supprimer définitivement ce log de service ?")) return;
+  const l = allLogs.find(x=>String(x.id)===String(id));
+  try {
+    await sb(`services_logs?id=eq.${id}`,{method:"DELETE"});
+    if(l) logActivity("service_log_suppr", `Log de service de ${l.agent_nom} supprimé`);
+    toast("✓ Log supprimé");
+    await loadLogs();
+  } catch(e) { toast("Erreur lors de la suppression","#E74C3C"); }
+}
+
 function renderLogs() {
   const el = document.getElementById("logs-list");
   const statsEl = document.getElementById("logs-stats");
@@ -1642,6 +1657,7 @@ function renderLogs() {
     <div class="stat-pill"><div class="stat-num" style="color:var(--blue-light)">${allLogs.filter(l=>l.fin).length}</div><div class="stat-lbl">Services terminés</div></div>
     <div class="stat-pill"><div class="stat-num" style="color:var(--orange-light)">${fmtDuree(totalMins)}</div><div class="stat-lbl">Total heures</div></div>`;
 
+  const canDelete = role==="admin";
   el.innerHTML = allLogs.map(l=>{
     const debut = new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
     const fin   = l.fin ? new Date(l.fin).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : null;
@@ -1650,9 +1666,12 @@ function renderLogs() {
         <div class="log-agent">${esc(l.agent_nom)}</div>
         <div class="log-dates">Prise de service le ${debut}${fin?" → fin à "+fin:""}</div>
       </div>
-      ${l.fin
-        ? `<div class="log-duree">${fmtDuree(l.duree_minutes)}</div>`
-        : `<div class="log-en-cours">🟢 En service</div>`}
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${l.fin
+          ? `<div class="log-duree">${fmtDuree(l.duree_minutes)}</div>`
+          : `<div class="log-en-cours">🟢 En service</div>`}
+        ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="deleteLog('${l.id}')">🗑</button>` : ""}
+      </div>
     </div>`;
   }).join("");
 }
