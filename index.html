@@ -657,6 +657,9 @@ const JOURNAL_TYPES = {
   service_log_suppr:    {color:"#F08080", label:"Service"},
   service_force_fin:    {color:"#F0A840", label:"Service"},
   service_modif:        {color:"#5DADE2", label:"Service"},
+  service_debut_demande:{color:"#F0A840", label:"Service"},
+  service_debut_valide: {color:"#52D98B", label:"Service"},
+  service_debut_refuse: {color:"#F08080", label:"Service"},
   alerte_envoyee:        {color:"#D35400", label:"Alerte"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
@@ -782,7 +785,8 @@ let serviceTimer = null;
 let allComptes = []; // cached agent accounts
 let allLogs = []; // cached service logs
 let mesServicesCache = []; // cached "Mon service" history (self)
-let _editingLogId = null; // id of the service log currently being time-corrected
+let _editingLogId = null; // id of the service log currently being time-corrected (fin)
+let _editingDebutId = null; // id of the service log currently requesting a start-time correction
 
 // ─── LOGIN ─────────────────────────────────────────────────────────
 function selectRole(r) {
@@ -1716,6 +1720,16 @@ async function saveEditFin(id) {
   if(!log) { toast("Log introuvable","#E74C3C"); return; }
   const debut = new Date(log.debut);
   if(newFin<=debut) { toast("L'heure de fin doit être après le début du service.","#E74C3C"); return; }
+  if(log.fin) {
+    const originalFin = new Date(log.fin);
+    if(newFin>originalFin) {
+      toast("Impossible : l'heure corrigée ne peut pas être postérieure à l'heure de fin réelle ("+originalFin.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+"). Vous pouvez uniquement l'avancer.","#E74C3C");
+      return;
+    }
+  } else if(newFin>new Date()) {
+    toast("L'heure de fin ne peut pas être dans le futur.","#E74C3C");
+    return;
+  }
   const duree = Math.round((newFin-debut)/60000);
   try {
     await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({fin:newFin.toISOString(),duree_minutes:duree})});
@@ -1742,6 +1756,53 @@ async function forceEndService(id) {
   } catch(e) { toast("Erreur","#E74C3C"); }
 }
 
+// ─── DEMANDE DE CORRECTION DE PRISE DE SERVICE (validation Responsable/PDG) ──
+function startDebutRequest(id) {
+  _editingDebutId = id;
+  renderMesServices(mesServicesCache);
+}
+function cancelDebutRequest() {
+  _editingDebutId = null;
+  renderMesServices(mesServicesCache);
+}
+async function submitDebutRequest(id) {
+  const inp = document.getElementById("req-debut-"+id);
+  if(!inp || !inp.value) { toast("Merci de choisir une date et une heure.","#E74C3C"); return; }
+  const proposed = new Date(inp.value);
+  const log = mesServicesCache.find(x=>String(x.id)===String(id));
+  if(!log) return;
+  if(log.fin && proposed>=new Date(log.fin)) { toast("La prise de service doit être avant l'heure de fin.","#E74C3C"); return; }
+  if(!log.fin && proposed>new Date()) { toast("L'heure ne peut pas être dans le futur.","#E74C3C"); return; }
+  try {
+    await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({debut_demande:proposed.toISOString(),debut_statut:"En attente"})});
+    logActivity("service_debut_demande", `${log.agent_nom} a demandé une correction de sa prise de service`);
+    toast("✓ Demande envoyée, en attente de validation par le Responsable/PDG");
+    _editingDebutId = null;
+    initServicePage();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function validerDebutDemande(id) {
+  const l = allLogs.find(x=>String(x.id)===String(id));
+  if(!l || !l.debut_demande) return;
+  const payload = {debut:l.debut_demande, debut_demande:null, debut_statut:null};
+  if(l.fin) payload.duree_minutes = Math.round((new Date(l.fin)-new Date(l.debut_demande))/60000);
+  try {
+    await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(payload)});
+    logActivity("service_debut_valide", `Prise de service de ${l.agent_nom} corrigée (validée par ${identityLabel()})`);
+    toast("✓ Correction validée");
+    await loadLogs();
+  } catch(e) { toast("Erreur","#E74C3C"); }
+}
+async function refuserDebutDemande(id) {
+  const l = allLogs.find(x=>String(x.id)===String(id));
+  try {
+    await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({debut_demande:null,debut_statut:null})});
+    logActivity("service_debut_refuse", `Demande de correction de prise de service de ${l?.agent_nom||""} refusée par ${identityLabel()}`);
+    toast("Demande refusée");
+    await loadLogs();
+  } catch(e) { toast("Erreur","#E74C3C"); }
+}
+
 function renderMesServices(logs) {
   mesServicesCache = logs;
   const el = document.getElementById("mes-services-list");
@@ -1759,14 +1820,30 @@ function renderMesServices(logs) {
         </div>
       </div>`;
     }
+    if(_editingDebutId===l.id) {
+      return `<div class="log-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div class="log-dates">🕐 Prise de service actuelle : ${new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+        <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;">Nouvelle heure proposée (soumise à validation)</label>
+        <input type="datetime-local" id="req-debut-${l.id}" value="${toDatetimeLocalValue(l.debut)}" style="background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.3);border-radius:8px;color:#fff;font-size:12px;padding:7px 10px;">
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="submitDebutRequest('${l.id}')">📤 Soumettre la demande</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelDebutRequest()">✕ Annuler</button>
+        </div>
+      </div>`;
+    }
     const debut = new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
     const fin   = l.fin ? new Date(l.fin).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : "En cours";
-    return `<div class="log-item">
-      <div><div class="log-dates">🕐 ${debut} → ${fin}</div></div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div class="${l.fin?"log-duree":"log-en-cours"}">${l.fin?fmtDuree(l.duree_minutes):"En cours"}</div>
-        <button class="btn btn-ghost btn-sm" onclick="startEditFin('${l.id}')" title="Corriger l'heure de fin (oubli, erreur…)">✏️</button>
+    const pendingNote = l.debut_statut==="En attente" ? `<div style="font-size:10px;color:var(--orange-light);margin-top:4px;">⏳ Correction de prise de service en attente de validation (proposé : ${new Date(l.debut_demande).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})})</div>` : "";
+    return `<div class="log-item" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div><div class="log-dates">🕐 ${debut} → ${fin}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="${l.fin?"log-duree":"log-en-cours"}">${l.fin?fmtDuree(l.duree_minutes):"En cours"}</div>
+          <button class="btn btn-ghost btn-sm" onclick="startEditFin('${l.id}')" title="Corriger l'heure de fin (oubli, erreur…)">✏️ Fin</button>
+          ${l.debut_statut!=="En attente" ? `<button class="btn btn-ghost btn-sm" onclick="startDebutRequest('${l.id}')" title="Demander une correction de l'heure de prise de service">🕐 Début</button>` : ""}
+        </div>
       </div>
+      ${pendingNote}
     </div>`;
   }).join("");
 }
@@ -1838,6 +1915,23 @@ function renderLogs() {
     </div>`;
   }
 
+  const pendingDebut = allLogs.filter(l=>l.debut_statut==="En attente");
+  const pendingBlock = (pendingDebut.length && canManage) ? `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--orange-light);margin-bottom:8px;">🕐 Demandes de correction de prise de service (${pendingDebut.length})</div>
+      ${pendingDebut.map(l=>`
+        <div class="log-item">
+          <div>
+            <div class="log-agent">${esc(l.agent_nom)}</div>
+            <div class="log-dates">Actuel : ${new Date(l.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} → Proposé : ${new Date(l.debut_demande).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-success btn-sm" onclick="validerDebutDemande('${l.id}')">✓ Valider</button>
+            <button class="btn btn-danger btn-sm" onclick="refuserDebutDemande('${l.id}')">✕ Refuser</button>
+          </div>
+        </div>`).join("")}
+    </div>` : "";
+
   const activeBlock = enCoursList.length ? `
     <div style="margin-bottom:14px;">
       <div style="font-size:11px;font-weight:700;color:#A8CFEA;margin-bottom:8px;">🟢 En service actuellement (${enCoursList.length})</div>
@@ -1845,7 +1939,7 @@ function renderLogs() {
     </div>
     <div style="font-size:11px;font-weight:700;color:#A8CFEA;margin:14px 0 8px;">📋 Historique</div>` : "";
 
-  el.innerHTML = activeBlock + allLogs.map(renderOne).join("");
+  el.innerHTML = pendingBlock + activeBlock + allLogs.map(renderOne).join("");
 }
 
 // ─── ADMIN COMPTES ─────────────────────────────────────────────────
