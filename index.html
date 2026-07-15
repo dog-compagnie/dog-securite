@@ -279,6 +279,14 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .journal-meta{font-size:10px;color:var(--text3);margin-top:3px;}
 .journal-time{font-size:10px;color:var(--text2);white-space:nowrap;}
 
+/* ÉVALUATIONS */
+.eval-btn{width:32px;height:28px;border-radius:7px;border:1.5px solid var(--border);background:rgba(13,21,32,0.5);color:var(--text2);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;}
+.eval-btn:hover{border-color:rgba(41,128,185,0.5);}
+.eval-btn.active-acquis{background:rgba(30,132,73,0.25);border-color:var(--green);color:#52D98B;}
+.eval-btn.active-insuffisant{background:rgba(211,84,0,0.25);border-color:var(--orange);color:#F0A840;}
+.eval-btn.active-nn{background:rgba(60,80,100,0.3);border-color:#4A5A6A;color:#7F9AB0;}
+.eval-elim-badge{background:rgba(192,57,43,0.2);color:#F08080;border:1px solid rgba(192,57,43,0.4);font-size:9px;font-weight:800;padding:3px 7px;border-radius:6px;}
+
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE — mobile & tablette uniquement (≤860px)
    N'affecte jamais l'affichage desktop, tout est dans ce bloc.
@@ -322,6 +330,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   .cand-top,.cand-statut-btns{flex-direction:column;align-items:flex-start!important;}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 <div class="bg"></div>
@@ -562,6 +571,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     <div class="page-title">Logs de <span>service</span></div>
     <div class="page-sub">Historique complet des prises et fins de service de tous les agents.</div>
     <div class="stats-bar" id="logs-stats"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;" id="logs-sort-bar"></div>
     <div class="card">
       <div class="card-hdr">
         <div class="card-hdr-title">📊 Historique</div>
@@ -650,6 +660,172 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     </div>
   </div>
 
+  <!-- PAGE ÉVALUATIONS AGENTS (Responsable/PDG) -->
+  <div class="page" id="page-evaluations">
+    <div class="page-title">Évaluations <span>des agents</span></div>
+    <div class="page-sub">Grille de notation standardisée pour les agents de sécurité.</div>
+    <div class="card" style="max-width:920px;">
+      <div class="card-hdr">
+        <div class="card-hdr-title">☑ Grille d'évaluation en cours</div>
+        <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;">Date :
+          <input type="date" id="eval-date" style="background:rgba(13,21,32,0.6);border:1px solid rgba(41,128,185,0.2);border-radius:6px;color:#fff;font-size:11px;padding:3px 6px;">
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field" style="max-width:340px;margin-bottom:16px;">
+          <label>Agent évalué *</label>
+          <input id="eval-agent" placeholder="Prénom NOM" list="eval-agents-list">
+          <datalist id="eval-agents-list"></datalist>
+        </div>
+        <div class="patrol-table-wrap">
+          <table id="eval-table"><thead><tr>
+            <th>Critère</th><th class="center">Pts max</th><th class="center">Acquis</th><th class="center">Insuffisant</th><th class="center">Non noté</th><th class="center">Éliminatoire</th><th class="center">Score</th>
+          </tr></thead><tbody id="eval-tbody"></tbody></table>
+        </div>
+        <div class="field" style="margin-top:16px;">
+          <label>Note libre (observations, commentaires…)</label>
+          <textarea id="eval-notes" rows="3" placeholder="Note libre (observations, commentaires…)"></textarea>
+        </div>
+        <div class="card-hdr" id="eval-verdict-bar" style="margin-top:16px;border-radius:10px;">
+          <div class="card-hdr-title" id="eval-verdict-text">En attente de notation… <span style="font-weight:400;color:var(--text2);">Complétez la grille pour obtenir le verdict.</span></div>
+        </div>
+        <div class="legend" style="margin-top:12px;">
+          <div class="legend-item"><div class="legend-dot" style="background:#52D98B"></div>Acquis = 100%</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#F0A840"></div>Insuffisant = 50%</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#7F9AB0"></div>Non noté = exclu du calcul</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#C0392B"></div>Éliminatoire = échec immédiat</div>
+        </div>
+        <button class="btn btn-success btn-full" style="margin-top:16px;" onclick="enregistrerEvaluation()">💾 Enregistrer l'évaluation</button>
+      </div>
+    </div>
+    <div class="card" style="max-width:920px;margin-top:20px;">
+      <div class="card-hdr"><div class="card-hdr-title">📚 Évaluations passées</div></div>
+      <div class="card-body" id="eval-history"><div class="empty"><p>Chargement…</p></div></div>
+    </div>
+  </div>
+
+  <!-- PAGE DOCUMENTS RH (Responsable/PDG) -->
+  <div class="page" id="page-doc-rh">
+    <div class="page-title">Documents <span>RH</span></div>
+    <div class="page-sub">Générez des documents officiels : convocation, avertissement, licenciement, courrier.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <button class="btn btn-sm btn-primary" id="doc-tab-convocation" onclick="setDocTab('convocation')">📋 Convocation / Avertissement</button>
+      <button class="btn btn-sm btn-ghost" id="doc-tab-licenciement" onclick="setDocTab('licenciement')">🚫 Licenciement</button>
+      <button class="btn btn-sm btn-ghost" id="doc-tab-courrier" onclick="setDocTab('courrier')">✉️ Courrier Sécurité</button>
+    </div>
+
+    <div class="card doc-subform" id="doc-form-convocation" style="max-width:760px;">
+      <div class="card-hdr"><div class="card-hdr-title">⚠️ Nouveau — Convocation / Avertissement</div></div>
+      <div class="card-body">
+        <div class="field-row-2">
+          <div class="field"><label>Référence (auto)</label><input id="conv-ref" disabled placeholder="Générée à l'enregistrement"></div>
+          <div class="field"><label>Nom de l'agent *</label><input id="conv-agent" placeholder="Prénom NOM"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Date du document *</label><input id="conv-date" type="date"></div>
+          <div class="field"><label>Type *</label>
+            <select id="conv-type">
+              <option value="convocation">Convocation</option>
+              <option value="avertissement">Avertissement</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Date du rendez-vous</label><input id="conv-date-rdv" type="date"></div>
+          <div class="field"><label>Heure du rendez-vous</label><input id="conv-heure-rdv" type="time"></div>
+        </div>
+        <div class="field"><label>Lieu du rendez-vous</label><input id="conv-lieu" placeholder="Lieu de la convocation…"></div>
+        <div class="field"><label>Objet de la convocation</label><textarea id="conv-objet" rows="4" placeholder="Motif de la convocation, type d'entretien (embauche, bilan, disciplinaire…)"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="resetDocForm('convocation')">Réinitialiser</button>
+          <button class="btn btn-success" onclick="enregistrerDoc('convocation')">💾 Enregistrer</button>
+          <button class="btn btn-primary" onclick="apercuDoc('convocation')">👁 Aperçu (JPG)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card doc-subform" id="doc-form-licenciement" style="max-width:760px;display:none;">
+      <div class="card-hdr"><div class="card-hdr-title">🚫 Nouveau — Licenciement</div></div>
+      <div class="card-body">
+        <div class="field-row-2">
+          <div class="field"><label>Référence (auto)</label><input id="lic-ref" disabled></div>
+          <div class="field"><label>Nom de l'agent *</label><input id="lic-agent" placeholder="Prénom NOM"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Date du document *</label><input id="lic-date" type="date"></div>
+          <div class="field"><label>Date d'effet *</label><input id="lic-date-effet" type="date"></div>
+        </div>
+        <div class="field"><label>Motif du licenciement *</label><textarea id="lic-motif" rows="4" placeholder="Motif détaillé…"></textarea></div>
+        <div class="field"><label>Observations</label><textarea id="lic-obs" rows="3" placeholder="Précisions complémentaires (optionnel)…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="resetDocForm('licenciement')">Réinitialiser</button>
+          <button class="btn btn-success" onclick="enregistrerDoc('licenciement')">💾 Enregistrer</button>
+          <button class="btn btn-primary" onclick="apercuDoc('licenciement')">👁 Aperçu (JPG)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card doc-subform" id="doc-form-courrier" style="max-width:760px;display:none;">
+      <div class="card-hdr"><div class="card-hdr-title">✉️ Nouveau — Courrier Sécurité</div></div>
+      <div class="card-body">
+        <div class="field-row-2">
+          <div class="field"><label>Référence (auto)</label><input id="cou-ref" disabled></div>
+          <div class="field"><label>Destinataire *</label><input id="cou-agent" placeholder="Prénom NOM"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Date du document *</label><input id="cou-date" type="date"></div>
+          <div class="field"><label>Objet *</label><input id="cou-objet" placeholder="Objet du courrier"></div>
+        </div>
+        <div class="field"><label>Corps du courrier *</label><textarea id="cou-corps" rows="6" placeholder="Contenu du courrier…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="resetDocForm('courrier')">Réinitialiser</button>
+          <button class="btn btn-success" onclick="enregistrerDoc('courrier')">💾 Enregistrer</button>
+          <button class="btn btn-primary" onclick="apercuDoc('courrier')">👁 Aperçu (JPG)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:760px;margin-top:8px;">
+      <div class="card-hdr"><div class="card-hdr-title">📚 Documents générés récemment</div></div>
+      <div class="card-body" id="doc-rh-history"><div class="empty"><p>Chargement…</p></div></div>
+    </div>
+  </div>
+
+  <!-- PAGE RAPPORT D'INCIDENT (Agent/Responsable/PDG) -->
+  <div class="page" id="page-incident">
+    <div class="page-title">Rapport <span>d'incident</span></div>
+    <div class="page-sub">Documentez un incident survenu pendant le service.</div>
+    <div class="card" style="max-width:760px;">
+      <div class="card-hdr"><div class="card-hdr-title">🚨 Nouveau — Rapport d'incident</div></div>
+      <div class="card-body">
+        <div class="field-row-2">
+          <div class="field"><label>Référence (auto)</label><input id="inc-ref" disabled></div>
+          <div class="field"><label>Date de l'incident *</label><input id="inc-date" type="date"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Heure *</label><input id="inc-heure" type="time"></div>
+          <div class="field"><label>Lieu de l'incident *</label><input id="inc-lieu" placeholder="Zone, secteur…"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Agent(s) impliqué(s)</label><input id="inc-agents" placeholder="Noms des agents présents…"></div>
+          <div class="field"><label>Personne(s) impliquée(s)</label><input id="inc-personnes" placeholder="Noms / descriptions…"></div>
+        </div>
+        <div class="field"><label>Description des faits *</label><textarea id="inc-desc" rows="5" placeholder="Décrivez chronologiquement les faits…"></textarea></div>
+        <div class="field"><label>Mesures prises</label><textarea id="inc-mesures" rows="3" placeholder="Actions menées, interventions…"></textarea></div>
+        <div class="field"><label>Suites données</label><textarea id="inc-suites" rows="3" placeholder="Dépôt de plainte, signalement, sanction…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="resetDocForm('incident')">Réinitialiser</button>
+          <button class="btn btn-success" onclick="enregistrerDoc('incident')">💾 Enregistrer</button>
+          <button class="btn btn-primary" onclick="apercuDoc('incident')">👁 Aperçu (JPG)</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="max-width:760px;margin-top:16px;">
+      <div class="card-hdr"><div class="card-hdr-title">📚 Rapports récents</div></div>
+      <div class="card-body" id="doc-incident-history"><div class="empty"><p>Chargement…</p></div></div>
+    </div>
+  </div>
+
   <!-- PAGE CANDIDATURES (gestion) -->
   <div class="page" id="page-candidatures">
     <div class="page-title">Candidatures <span>reçues</span></div>
@@ -662,6 +838,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 </div><!-- /app -->
 
 <div class="toast" id="toast"></div>
+<div id="doc-render-zone" style="position:fixed;left:-9999px;top:0;z-index:-1;"></div>
 
 <script>
 const SB_URL = "https://mrcbbkthunfrijpmbqak.supabase.co";
@@ -716,6 +893,8 @@ const JOURNAL_TYPES = {
   service_debut_valide: {color:"#52D98B", label:"Service"},
   service_debut_refuse: {color:"#F08080", label:"Service"},
   alerte_envoyee:        {color:"#D35400", label:"Alerte"},
+  evaluation_creee:      {color:"#9B59B6", label:"Évaluation"},
+  document_cree:         {color:"#1F4E7B", label:"Document"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
 function currentActeurLabel() {
@@ -773,6 +952,436 @@ async function desactiverAlerte() {
   } catch(e) { toast("Erreur lors du retrait de l'alerte","#E74C3C"); }
 }
 
+function todayISO() { return new Date().toISOString().slice(0,10); }
+
+// ─── ÉVALUATIONS DES AGENTS ──────────────────────────────────────────
+const EVAL_CRITERES = [
+  {cat:"Comportement & attitude", nom:"Tenue et équipements réglementaires", max:3, elim:false},
+  {cat:"Comportement & attitude", nom:"Attitude professionnelle vis-à-vis des civils", max:4, elim:false},
+  {cat:"Comportement & attitude", nom:"Respect de la hiérarchie et de la chaîne de commandement", max:3, elim:false},
+  {cat:"Comportement & attitude", nom:"Maîtrise de soi en situation de tension", max:5, elim:true},
+  {cat:"Comportement & attitude", nom:"Absence de comportement discriminatoire ou abusif", max:5, elim:true},
+  {cat:"Procédures & protocoles", nom:"Prise de poste conforme au protocole", max:5, elim:false},
+  {cat:"Procédures & protocoles", nom:"Application correcte des procédures d'interpellation", max:5, elim:true},
+  {cat:"Procédures & protocoles", nom:"Gestion des fouilles et contrôles d'accès", max:4, elim:false},
+  {cat:"Procédures & protocoles", nom:"Utilisation proportionnée de la force", max:6, elim:true},
+  {cat:"Procédures & protocoles", nom:"Connaissance et respect des zones de compétence", max:3, elim:false},
+  {cat:"Procédures & protocoles", nom:"Conduite du véhicule — protocoles hors urgence", max:4, elim:false},
+  {cat:"Procédures & protocoles", nom:"Conduite du véhicule — protocoles en urgence", max:5, elim:true},
+  {cat:"Communication & commandement", nom:"Clarté et précision des transmissions radio", max:4, elim:false},
+  {cat:"Communication & commandement", nom:"Utilisation du langage radio réglementaire", max:3, elim:false},
+  {cat:"Communication & commandement", nom:"Coordination avec les équipes partenaires", max:4, elim:false},
+  {cat:"Communication & commandement", nom:"Réactivité aux ordres du commandement", max:4, elim:true},
+  {cat:"Communication & commandement", nom:"Comptes-rendus de situation cohérents", max:3, elim:false},
+];
+let evalState = {};
+
+function renderEvalTable() {
+  const tbody = document.getElementById("eval-tbody");
+  if(!tbody) return;
+  let html = "", lastCat = null;
+  EVAL_CRITERES.forEach((c,i)=>{
+    if(c.cat!==lastCat) {
+      html += `<tr><td colspan="7" style="background:rgba(26,82,118,0.3);font-size:10px;font-weight:800;color:#7EAAC8;text-transform:uppercase;letter-spacing:0.08em;padding:8px 12px;">${esc(c.cat)}</td></tr>`;
+      lastCat = c.cat;
+    }
+    const st = evalState[i]||"non_note";
+    const score = st==="acquis"?c.max : st==="insuffisant"?Math.round(c.max*0.5) : null;
+    html += `<tr>
+      <td style="padding:10px 12px;font-size:12px;">${esc(c.nom)}</td>
+      <td class="center" style="font-weight:700;">${c.max}</td>
+      <td class="center"><button class="eval-btn ${st==="acquis"?"active-acquis":""}" onclick="setEvalState(${i},'acquis')">✓</button></td>
+      <td class="center"><button class="eval-btn ${st==="insuffisant"?"active-insuffisant":""}" onclick="setEvalState(${i},'insuffisant')">~</button></td>
+      <td class="center"><button class="eval-btn ${st==="non_note"?"active-nn":""}" onclick="setEvalState(${i},'non_note')">NN</button></td>
+      <td class="center">${c.elim?'<span class="eval-elim-badge">ÉLIM</span>':"—"}</td>
+      <td class="center" style="font-weight:800;">${score===null?"—":score}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+  updateEvalVerdict();
+}
+function setEvalState(i, state) { evalState[i] = state; renderEvalTable(); }
+
+function computeVerdict(pct, eliminated) {
+  if(eliminated) return "Éliminé";
+  if(pct>=80) return "Validé";
+  if(pct>=60) return "Duo obligatoire";
+  return "Duo responsable obligatoire";
+}
+const VERDICT_META = {
+  "Validé":                    {color:"#52D98B", icon:"✅"},
+  "Duo obligatoire":            {color:"#5DADE2", icon:"🔶"},
+  "Duo responsable obligatoire":{color:"#F0A840", icon:"🔺"},
+  "Éliminé":                    {color:"#F08080", icon:"❌"},
+};
+function updateEvalVerdict() {
+  let achieved=0, max=0, eliminated=false, anyGraded=false;
+  EVAL_CRITERES.forEach((c,i)=>{
+    const st = evalState[i]||"non_note";
+    if(st==="non_note") return;
+    anyGraded = true;
+    max += c.max;
+    if(st==="acquis") achieved += c.max;
+    if(st==="insuffisant") { achieved += c.max*0.5; if(c.elim) eliminated=true; }
+  });
+  const pct = max>0 ? Math.round((achieved/max)*100) : 0;
+  const bar = document.getElementById("eval-verdict-bar");
+  const txt = document.getElementById("eval-verdict-text");
+  if(txt && bar) {
+    if(!anyGraded) {
+      txt.innerHTML = 'En attente de notation… <span style="font-weight:400;color:var(--text2);">Complétez la grille pour obtenir le verdict.</span>';
+      bar.style.background = "";
+    } else {
+      const verdict = computeVerdict(pct, eliminated);
+      const meta = VERDICT_META[verdict];
+      const detail = eliminated ? "critère éliminatoire en échec" : "score : "+pct+"%";
+      txt.innerHTML = `${meta.icon} ${verdict.toUpperCase()} <span style="font-weight:400;color:var(--text2);">— ${detail}${eliminated?" (score : "+pct+"%)":""}</span>`;
+      bar.style.background = `linear-gradient(90deg,${meta.color}66,rgba(22,30,42,0.2))`;
+    }
+  }
+  return {pct, eliminated, achieved, max, anyGraded};
+}
+
+async function enregistrerEvaluation() {
+  const agentNom = document.getElementById("eval-agent").value.trim();
+  if(!agentNom) { toast("Merci d'indiquer l'agent évalué.","#E74C3C"); return; }
+  const dateEval = document.getElementById("eval-date").value || todayISO();
+  const {pct, eliminated, achieved, max, anyGraded} = updateEvalVerdict();
+  if(!anyGraded) { toast("Merci de compléter au moins un critère.","#E74C3C"); return; }
+  const verdict = computeVerdict(pct, eliminated);
+  const criteresData = EVAL_CRITERES.map((c,i)=>({...c, statut: evalState[i]||"non_note"}));
+  try {
+    await fetch(SB_URL+"/rest/v1/evaluations", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({
+        agent_nom:agentNom, date_eval:dateEval, evaluateur:identityLabel(),
+        criteres:criteresData, score_total:achieved, score_max:max,
+        pourcentage:pct, verdict, notes:document.getElementById("eval-notes").value.trim()||null
+      })
+    });
+    logActivity("evaluation_creee", `Évaluation de ${agentNom} enregistrée (${verdict}, ${pct}%)`);
+    toast("✓ Évaluation enregistrée");
+    evalState = {};
+    document.getElementById("eval-agent").value="";
+    document.getElementById("eval-notes").value="";
+    renderEvalTable();
+    loadEvaluations();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+async function loadEvaluations() {
+  const dateEl = document.getElementById("eval-date");
+  if(dateEl && !dateEl.value) dateEl.value = todayISO();
+  const dl = document.getElementById("eval-agents-list");
+  if(dl) dl.innerHTML = agents.map(a=>`<option value="${esc(a)}">`).join("");
+  renderEvalTable();
+  try {
+    const rows = await sb("evaluations?select=*&order=created_at.desc&limit=50");
+    renderEvalHistory(rows||[]);
+  } catch(e) { console.warn("loadEvaluations", e); }
+}
+function renderEvalHistory(rows) {
+  const el = document.getElementById("eval-history");
+  if(!el) return;
+  if(!rows.length) { el.innerHTML = '<div class="empty"><p>Aucune évaluation enregistrée.</p></div>'; return; }
+  el.innerHTML = rows.map(r=>{
+    const d = new Date(r.date_eval+"T12:00:00").toLocaleDateString("fr-FR");
+    const vcolor = (VERDICT_META[r.verdict]||{}).color || "#fff";
+    return `<div class="log-item">
+      <div><div class="log-agent">${esc(r.agent_nom)}</div><div class="log-dates">${d} · évalué par ${esc(r.evaluateur||"—")}</div></div>
+      <div style="text-align:right;">
+        <div style="font-weight:800;color:${vcolor}">${esc(r.verdict)}</div>
+        <div style="font-size:11px;color:var(--text2);">${r.pourcentage}%</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ─── DOCUMENTS OFFICIELS (Convocation/Avertissement, Licenciement, Courrier, Rapport d'incident) ──
+const DOC_PREFIX = {convocation:"CON", avertissement:"AVT", licenciement:"LIC", courrier:"COU", incident:"INC"};
+const DOC_LABEL  = {convocation:"Convocation", avertissement:"Avertissement", licenciement:"Licenciement", courrier:"Courrier Sécurité", incident:"Rapport d'incident"};
+const DOC_COLOR  = {convocation:"#8B5A2B", avertissement:"#8B5A2B", licenciement:"#7B1F1F", courrier:"#1F4E7B", incident:"#7B1F1F"};
+
+function prefillDocDates() {
+  ["conv-date","lic-date","cou-date","inc-date"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el && !el.value) el.value = todayISO();
+  });
+}
+
+function setDocTab(tab) {
+  ["convocation","licenciement","courrier"].forEach(t=>{
+    const form = document.getElementById("doc-form-"+t);
+    if(form) form.style.display = t===tab ? "block" : "none";
+    const btn = document.getElementById("doc-tab-"+t);
+    if(btn) { btn.classList.toggle("btn-primary", t===tab); btn.classList.toggle("btn-ghost", t!==tab); }
+  });
+}
+
+function resetDocForm(kind) {
+  const ids = {
+    convocation: ["conv-agent","conv-date-rdv","conv-heure-rdv","conv-lieu","conv-objet"],
+    licenciement: ["lic-agent","lic-date-effet","lic-motif","lic-obs"],
+    courrier: ["cou-agent","cou-objet","cou-corps"],
+    incident: ["inc-heure","inc-lieu","inc-agents","inc-personnes","inc-desc","inc-mesures","inc-suites"],
+  }[kind]||[];
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+}
+
+function collectDocData(kind) {
+  if(kind==="convocation") {
+    return {
+      type: document.getElementById("conv-type").value,
+      agentNom: document.getElementById("conv-agent").value.trim(),
+      dateDoc: document.getElementById("conv-date").value || todayISO(),
+      dateRdv: document.getElementById("conv-date-rdv").value,
+      heureRdv: document.getElementById("conv-heure-rdv").value,
+      lieu: document.getElementById("conv-lieu").value.trim(),
+      objet: document.getElementById("conv-objet").value.trim(),
+    };
+  }
+  if(kind==="licenciement") {
+    return {
+      type:"licenciement",
+      agentNom: document.getElementById("lic-agent").value.trim(),
+      dateDoc: document.getElementById("lic-date").value || todayISO(),
+      dateEffet: document.getElementById("lic-date-effet").value,
+      motif: document.getElementById("lic-motif").value.trim(),
+      obs: document.getElementById("lic-obs").value.trim(),
+    };
+  }
+  if(kind==="courrier") {
+    return {
+      type:"courrier",
+      agentNom: document.getElementById("cou-agent").value.trim(),
+      dateDoc: document.getElementById("cou-date").value || todayISO(),
+      objet: document.getElementById("cou-objet").value.trim(),
+      corps: document.getElementById("cou-corps").value.trim(),
+    };
+  }
+  if(kind==="incident") {
+    return {
+      type:"incident",
+      dateDoc: document.getElementById("inc-date").value || todayISO(),
+      heure: document.getElementById("inc-heure").value,
+      lieu: document.getElementById("inc-lieu").value.trim(),
+      agents: document.getElementById("inc-agents").value.trim(),
+      personnes: document.getElementById("inc-personnes").value.trim(),
+      desc: document.getElementById("inc-desc").value.trim(),
+      mesures: document.getElementById("inc-mesures").value.trim(),
+      suites: document.getElementById("inc-suites").value.trim(),
+    };
+  }
+  return {};
+}
+
+function validateDoc(data) {
+  if(data.type==="incident") {
+    if(!data.dateDoc||!data.heure||!data.lieu||!data.desc) return "Merci de remplir les champs obligatoires (date, heure, lieu, description).";
+    return null;
+  }
+  if(!data.agentNom||!data.dateDoc) return "Merci d'indiquer le nom de l'agent et la date du document.";
+  if(data.type==="licenciement" && (!data.motif||!data.dateEffet)) return "Merci d'indiquer le motif et la date d'effet.";
+  if(data.type==="courrier" && (!data.objet||!data.corps)) return "Merci de remplir l'objet et le corps du courrier.";
+  return null;
+}
+
+async function nextDocReference(type) {
+  const prefix = DOC_PREFIX[type];
+  const now = new Date();
+  const yymm = String(now.getFullYear()).slice(2)+String(now.getMonth()+1).padStart(2,"0");
+  try {
+    const rows = await sb(`documents?type=eq.${type}&select=reference`);
+    const count = (rows||[]).filter(r=>r.reference && r.reference.includes("-"+yymm+"-")).length;
+    return `${prefix}-${yymm}-${String(count+1).padStart(3,"0")}`;
+  } catch(e) { return `${prefix}-${yymm}-001`; }
+}
+
+const LOGO_COMPAGNIE_B64 = "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";
+const LOGO_SECURITE_B64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCADcANwDASIAAhEBAxEB/8QAGwAAAgIDAQAAAAAAAAAAAAAAAAEFBgIDBAf/xABOEAABAwMCAwQFBwYJDAMBAAABAAIDBAURITEGEkEHUWFxExSBkaEiMnJzsbLBFSMzNkLRFiQ0NUNSYqLwCCU3RFNUY4KSk8LhF7PS8f/EABcBAQEBAQAAAAAAAAAAAAAAAAABAgP/xAAbEQEBAQACAwAAAAAAAAAAAAAAEQExUSFBYf/aAAwDAQACEQMRAD8A8N1yjISyNEE65WHI8p5SR1QPyR0S6JFBlnqhHRJA8oJ0S0R8UD6dyAViPBMoHnRGiSPageU1iD4IQPqjTOdks6IGqBkp51yCl3pDwQPOuieRlYo6oH7U+qxyO5HVBl1QEsoQPKDr0ykUx4BBqJz34T8kuqED/BMFLHVLOSgyG+qaxQNkD6ozqkd0AZcAASTsB1QMeSFJ0XD93qwHso3RsOzpSGD46/BS0XBsrG81bcYIR15W5+JwEFWCkbdZbhX0UtZSxB7IyRjmw5xAyQB1UzLauGKSJ5lurppGtJDWygcxxoPkj8V02q4fkfhGhqXNz6WoPMO9pcebHjgIqmLphoayeimrIqd74ITiR4/ZVnv0FBbbo64SUjKmjroncuGg8kuMhwz0I196lOEaNo4WhieAfWGvc/x5tPswoR53lHsU5Za6z0lM+luttFRIyQhsgjBIHUHUdVIen4Ln+dTSw+TXt+wlUVNCtotHCtWf4tdnQk7B0g+xwC1VHBlTyl9FXwTt3AcC34jIUFXTXfW2W60QLp6KXlH7bBzt94UcCqh5TzlLKOmqA6prEYQgyGgRnuSQgec7oJSyg+SDDqjZLTQIQPVNId6AgazjY+SRscbHPe44a1oySe4BYBWXs6AN5mJAJEBwcaj5QQZW7hR4i9Zu9Q2khGpbkc3tJ0HxK6TfbFaAY7RQiaQaGU6A/wDMflFVy8XCsuFW99VM54a4hrdmt16BcQKipqu4nvFSSG1Ap2H9mEY+O6iJpZZnc00r5Xd73Fx+KwQN1UMadVY+JQYuGrFT7fm3PIz3gfvVad80+St/HVO8W22TNB9FHH6M46Etbj34KKdnBvPBs9BjmnpT+a7zjVv4hd3D3EVsit1NSVUxpZoGBhbI0gEjqCuDs3ZJ6etl19GGNb4c2SfsyrhLDDK0iWGOQHfmYD9qg8ruxjNzqjC9r4jM4sc05BBOQVzDyXpdXw7Zqn51E2Nx3dESw/DRQVy4LkDTJbqr0ndHMMH2OGnvCUionOxWynnnp3c1PNJEe9ji37EqiKWnnfDPG6ORhw5jhggrXlVE/QcV3amwJJGVTR/tRr/1DX7VIi58N3octxpfU5z/AEo0/vD8QqflPTGqKsd14UqYI/WLdKK2AjIDcc+PZo72e5Vxw5SWuBBBwQRspLh+5VtBWxMp5iIpJGtfGdWHJxt0Piu7j9rW8RO5QBmFhOBjJ11QV9ASR1RDKAcnZCEDKWQN8ozrsmPYg16o8ksoQG+yYQgIGPPRWbs50vM3X8wfvBVhWbs5z+WpvqD94IK7Ofz8n0z9qwWUx/PSfTP2rH/GEB1QhCDZBFJUTMhhY6SR55WtG5Pcr/wxUQXjh40dU3nMTfQzMOhI/ZPw94UV2e23mfJc5W6NzHD5/tH8PaVL2+jdScYVromcsFRTiR2BoHF37wT7VFd1it0dqoPVY3l+ZHPLiME5OmfIYCkEJDTyUVw3mW6sgDbXSxzSuzl0jwAz2HdVOhk4lgv7ZKiGsqJWDMkZPyXMO+P2fLCvZ2SycY1wqIHiewflhsdTTubDUtbj84MczegPcQqfWcP3ilyX0Uj2j9qLDx8NV6egaHONUqPHXAtcWuBaRuDoUL1i401DNTvfXU0UrGNLnFzOYgD4qs8QcN2xlA+to5/QEML2N5+ZkmBnAzrsOhSkVOg/l9P9az7wU52hfrGfqGfioOgP8epvrWfeCm+0Eg8RH6hn4qivI6oS9iIeuO5BQglA9hqEkEoJQYIPfplB23QNAgOiEA+KOiBqy9nX88zfUH7wVaVl7Of56l+o/wDIKCuT/pn/AEz9qx81lN+mf9M/asVQxuso2PllbFG0ue9wa0d5OgWHRWDgOi9avgncMspm+kP0jo38T7EF6tlIygt8NJHgiJgaT3nqfacroJAxrqdkwQNtu9ctzgmqKNwp5BFOwh8LzsHjbPgdQfArLTpQd9MqHoOIaR7zS3D/ADfWM0fHMcNJ/su2I81JetUoZzGph5e8yNx9qDeM4QR71GzX+zRO5XXKnzn9kl3xAK3VNyp4qEVkTZauMnDfVm+kJPs2QdngjGVAScU0kIBqaC407ScAyQgZ+K2M4rsjhn1p7D/aicEE2RkEHY9MLznjCkpbfcW01HNIWlpc6EnLYuboPPfHkpy78Y0scTmWxr5pToJHt5WN8cHU/YqTNJJNK6WV5fI88znOOSSria20H8up/rWfeCmu0L9Yzv8AoWfioS3/AMupz/xWfeCm+0HTiN31LPxVFeKDukjroiGfchGpKED69EBYhZe9Br0QNkIQNHkkNcFNAa6Kz9nH88zfUf8AkFWM4Vn7N/56m+oP3goqtzfppPpn7Vj1WU36aT6R+1Y6dyqG1pLsDUnQDG6vnZ82mZbZmCQetGQmaMjDmgaAY9/vVd4JpY6m/wARlc3ELTKGk/OcNh8c+xXK8WSKtmFZTSuo65nzZ2dfpDr5/aouJUgajomQq4y919rcIb9RO5M4FXAMsd5j/HkpuhraSui9JSVEc7evIdR5jcKKVfQ0ddHyVdNFMANOYajyO4VK4w4fp7bFHWUYcIXO5Hscc8hOxB7lfiBjVcN8ovX7TU0gHy3sPJ9Iaj4hVHlS2wVFRBkQTyxc2/I8tz7lqIcXY5SHbY8e5dl6gFLcpaUf0IbGfEhoyfflVHNLJJK/mlkfI7qXOJPxWGyEaIGdeiRQjpog3UH8vpvrmfeCnO0L9Y3fUs/FQdB/LqbT+lZ94Kc7Qv1iJ/4DPxRVdKAUkeCIevejbVHXxRsgE/bhIZ3KNEGKEaIQHRA33SWXVAlZ+zlwF8laetOfg5qrOnVTvAkoi4khBOPSMez24yPsQQs4InkB3Dzn3oijfLI2KJhe95DWtG5PQLpvcJp7xWQ/1Z348icj7V38MXK2WuR1TUwVEtQdGOaG8rB4ZO5QWOh4VpmWpscr3sr8+k9YjOsbugHgPitkV4rLVI2mv0RMZOGVkTcsd9IdD/jC20nFFmnwDUugJ6TMLR7xkKYBhqac49HPC8a7Oa4fYVFEMsFTBzwvjmieMZaeZpVYvdsppLsyms0D6e4ACSWWJ5ZHE09XY6noAuyfh0QTGpstZLb5jqWA5jd7P/6uAVV5td3fW3KgMsUkTY5pKYZB5dneB8NEGyo/L9LcmUrr8wtFO+d0j4Byta3A+UMara2/XGkp/WKyCirKQEB1RRzDTO2Wn/0uK5VZuFDd7nSMlkjkEVJFhhyGfOecdNVx2SkD4LbRkfKrak1Mox/RR5DfeeZBou9RZZbxBXUckrOaZr6iJ8fKBrkuH4hR9+miqL1WTwyCSOSZzmOGxC9Qmgp5TmaCF5/txg/aqdxxQh1W00NJG1lPB6Sf0bA0gOcQCQNxp7EFTKCkUKoaEjnoUfig6LYC650rR1nYP7wU12hEHiI+ELPxUdwzF6biChZuBMHHyGv4Lo4zl9LxJVdzOVnuaEVD49iQ8Uf40QiDOiNUdUDdA0e5HXxQMoMc64QkjzQP2JahNCAC6rVU+p3OmqukUrXHyzr8MrlCaCw8f03ob4J2D5FRG1+e8jQ/YPeq95qSud5muFvpaOohizTABkoJ5naY16dB7lGnQgbHxQGV0UNbVUEolpJ3wu/snQ+Y2K50ZHePegvNg4shqS2nuQZBKdBKNGO8/wCqfh5K1ZIOQvHFO2niivt9IKUNhnY35hlJy0dwIOykWrdV8P0slS+qpJ6qhneeZzqeTAJ7+XZcjuG6qWr9aqL5UmZrQ2ORjA1wb46+KhxxrX7+p0hHgXfvT/htX/7nSH2u/egjqu5Xiir5aSa6VgEUnI8h+TjO4z4artooJKa8Ous9yiqKNjXEzmcF0zS0gM5c5ydBjooe83B1zrTWSQxxSOADgwnBx1164XEcZzp5qg18kHVHRA10Gp7kQt0+qWnRMEILJ2ewB93lq36R00JJJ2ydPsDlA105qqyepO8sjn+8rsobxLRWqqoIYYh6znnlJPOARjA6bZ95UaihCEIgQEtUwgEFG3RGvQIMdMaIQUIH4I6paICB9U8pICD2Ls1prXw92dVHF89E2qq+WSQnALmsa7laxpPzddSfHwXbZeL+GuNqCtoOI6KitzYwMGoqG4IORzMcQ0hwx08FS+zzj6KwW+Sy3aiNbbZHOIDMF0fN84FrtHNPdp1Vm/gbwRxlb5azhWpNFUt3Y3PKxx2D43atB72nHmo3nxA9itPFH2g1VPzRVMcVLO1r8BzXgPaA4dNRqrZxT2j0Fi4gq7Q7hxtQaZ4aZBIxodloO3Lpuqn2HwyU3H9VTTN5JYqOaN7e5wewEfBWviqXstbxHWC/Qvdcg8esER1ByeUf1TjbGyJnCocPXeHiLtmttzZRNpop52D0BIcBywlvQAa4zsr7xvxzb+Fb3HbZrEKtroGzOkYWNwCSMYLddu9ea8AGjPa1bzbxijNfIYAc6R8r+XfXbG+q9R4y4L4f4n4jifcLxNT1vqzWClhljDnRtJPNykF3U6juRc4VfttsVo/IVDxLbaWOlfUPYyURsDBIyRhc1xaNA4Y38fBd3E7YeIexKC6Mhj9YghimeWsAPNGeSTbwyVw9ul6ooqGi4So2vMlM6OWUkHDGNZiNoJ+cSDknwXR2JTMu3Bt54cmPNhzg0H+pMwj7wPvQ9ov/ACf7YypvVyuEsbXtggbCzmaCOZ7s/Y34rRwzWxXft0NU1kboH1E7Y28o5eRkbmt08m5U92dc3DXZHd7zKOSoe6ZwzoeZo9Ez+9lUjsb/ANI1rBOTiXXv/NOVTpI9sNI2o7TY6KIMi9PFTRAhoABccZwPNegcT3izdmVqoaG3WVk75y5ow4MLgzHM978EuJJH/pUntS/0wUP0qL76k/8AKPP8Yso8J/tYovbs43/g/wAYdnLuJYoaakuUURlYC9gly12Hxuxq4HBxp3ELd2JmGHs/r6uSnjlMNTNJhzRkhsbTjJHgvEDy515c/Fe5dh5g/wDjuv8AWtacVM/pd/mejbzba7ZVTNuod3a7b5IXAcKBvOzH6ZmmR9BeSr0niSXsodw9WCxwvbcTD/FT6OoGHaY+ccbd682PgiaaQQUdd0QJpIHigCml8UxhBihI7oOqATR4BCATG6RPgmEHrfAlPw5xVwE7h+VtDS3aOMxmX0LPTfO5mSA6F3QHXO46qb4O4bo+zuCvul4vMLxMxrc8nowGtJOACSXOJ6BeEDOfEbKUpbFea2nbUw0UskZGWue4DI8OY5Rqrp2QVsdX2l3CvkLYm1MFRLh7gMc0jTjXzVn4p7OLffb/AFl3dxIKd1S8OMbY43BuGgb84zsvF30dS2sFFJTubUFwYI3jB5jturDRcPSQ2qoFRw/LU179Ii4tDIx36OyT19yGamOH7PBw72zWy1x1zaqKGdrvTu5Wg80Jd0JAxnG6ku1S8G0dqdsvFM9khpaWF55HA8zeZ/M3TvaSPavNo7fVSVhoI6V752uLTE1uSCN89F1Vthu1BTmaooHxxDVzm8pA8Tg6Ilemdu9upa63W7iShlilDQIZSx4JdG75Ubsb6Ekf8wVc7D7oLfxwyCSRrIq2B8JLjgcw+W3U+LSPaqdS2yrqKWasp6Uvhhz6SQYHLpk+OyKO21tdFLJTUxmjhGZCCMN0J6+AKF817B23VtLb+DaSzUL4w2rqy9zY3g/JaTIdu97gqH2PuaztEtjnua1oEurnAD9G7qq9brRX10T5aGjdLG13K5zeUa4z3+KLhabjQxh9ZRSRRk4DnAFue7I0UKuXbDVin7TI6yItl9BFTSgNcCCWnOMjyV/4ssVs7TLXQV9pvMcToS5wPJz4D8Za9oILXAgLwtlurXW51wZTH1Rpw6QYABzjbzIXXTWG9SwsqIKGQskaHNc17RzA7dUWvT+NqPhvg/s7dYiKGsvEsZijlMDPTEudl0h3LQBkDJ7guvsSEE3Z9XUklRFF6apmjy57QQHRtGcE+K8euNouVA1klZSPibI7ka5xB5newqYtXDs0UdTJcrJPVTcmIIstDc97jzZ9nmhV2PZBbWR/rbnlb/sI+g+mvIzutlZSPpKl9PVQNjlZ85haNOvRa/BVNGEd6WUIhjZG6EeSACeqXVGR3ZQYnfdMJIz0QPKNks6I10yUDR0RojVADxGR1C9BvbbtXQ0lfw9Vl1OxgzHFJy5OdMjY6aYK8/GM65xnXCtx4fuFJV09Tw5VSPglaHGQyge8bEY8O9FcVRX1Vw4toH1tI2lnjmjjcwAg/OyM581PcR0vEs1yL7VLKym5G4DZmtGeuhXJxQ+F/GlpZGQ6Rj4xJy9MvyB7l1cSWi/1l0dNb53xwGNrQ0VDmaga6KDk7PnvcbrVSEvn5QS92pPzj9oCi7NxTWUwnFeZq+OZmOV8mOUnfGh0IOykuAx6tW3S1zua2pI5QM5yW5Bx37hc9t4TdFDUz3txp4YWZa6ORuuNzsdPig3cL/qVecbfL/8ArCfAOlpvP0B9x6OCQKvh+622N7RPJkta49CzAPvC6bDQVNisF1lubWQ+kZho5wScNIG3eSg0cFmccJXP1Xn9OHH0fJ87m5BjHiumjNyfwddfy2JshjvR+nGHY5Rj+9suTg+WWn4Pus8TiySNxLXAZ5SGNW25TT3zgZtW17zNSuzUNbs/l0JIHgQ73oNNHk9mlX9a777Edn1fWz3Q0s1VK+COnPJG4/JGCAMexFEM9mdWcbSn77FzdnGTfpNCf4u7b6TUEZeK+tqrhJBUVUs0UdS7ka52jflY09iunFVLxBPVQGzSSMjEZEgbKGfKzpv4KhV2t3n0/wBZd99Xziu13uuqoJLZM6JjIyHgTmPJz4boKBcHVLq2Y1kjn1AeWyOc7JyNN/YuddV1pamiuEtNVkGdhBeQ7mySM79d1ynw3VQeCEDyQgYPekhCAB0TGySf+N0GJQjqhAIS9qeEDQUuqPNAx7lvgrKunjLIKqeJp3ayQgfBc/mmgyD3c/PzO5s55s6578rb63Vn/W6n/uu/eucDATyg6KMNlrGemqzT8ztZnAnlPeca+1THElrutJTslnrpa6lODz87i1p6ZBJ07iq/lTvDt/kt49VqmmoonZBYdSwHfGdx4IqFie+J4kie5j27Oa7BHtC2VNXVVOPWamabG3pHl2PerFduG46mD8oWGRs8LtfQg6j6P/5OqrAjkMvogx3pObl5OU5z3Y3yiGyWVsbo2yyNY7doeQD5hTlmsVwq7fJVGs9RpSObmkc4NeOpwDt4ldlqsFNb6cXK/vaxjdWwHXXpnvP9ke1RvEd/qLq/0LAYKRp+TEN3Y2Lv3bBRUZM90ZfTxVT5IM7gua13jyla45ZInc0UkkbtsscQfgsd0eSqGSS4uJJO5JOq3euVf+9VP/ed+9aMo2QOR7pHF0j3Pcdy4kk+1JG5R1QB66hIbJoQAR0QhAwgeCWUIEUuuiE0AhBR0QCCjRJA8oR0R1QCMYRrshA/JCSMoO61XOstk3paSUtz89h1a/zH47qyHiq2iI1zLd/nJw5DoMf9W+PiqchFdVzuFVcZ/TVUpe4aNaBhrB3AdFynVCXXREPXKEJYQPrjCN0ICAJQhCAQlqn00QCEexCA8kZQd0x5oMUk0uiATSKfTKAPijohA1QARujqEY1wgEHuSzqQmgEZQNUblAIT6IAQHtQgDVJxxsgaSefkjySQCaWBhCAQgowgOqeyWxwmUAEITQI+KEdMowg//9k=";
+
+function buildDocInner(data, ref, overrideAuteur, overrideRole) {
+  const type = data.type;
+  const color = DOC_COLOR[type]||"#333";
+  const title = (DOC_LABEL[type]||type).toUpperCase();
+  const dateDocFr = data.dateDoc ? new Date(data.dateDoc+"T12:00:00").toLocaleDateString("fr-FR") : "—";
+  let infoRows, bodyHTML;
+
+  if(type==="convocation" || type==="avertissement") {
+    const dateRdvFr = data.dateRdv ? new Date(data.dateRdv+"T12:00:00").toLocaleDateString("fr-FR") : "—";
+    infoRows = [
+      {l:"Référence", v:ref}, {l:"Agent", v:data.agentNom||"—"},
+      {l:"Date du document", v:dateDocFr}, {l:"Type", v:DOC_LABEL[type]},
+    ];
+    const intro = type==="avertissement"
+      ? `Le présent avertissement est notifié à ${data.agentNom||"l'agent concerné"} en date du ${dateDocFr}.`
+      : `Vous êtes convoqué(e) le ${dateRdvFr} à ${data.heureRdv||"—"} au lieu suivant : ${data.lieu||"—"}.`;
+    bodyHTML = `<p>${intro}</p><div class="doc-section-title">OBJET DE LA ${type==="avertissement"?"NOTIFICATION":"CONVOCATION"}</div><p>${(data.objet||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+  } else if(type==="licenciement") {
+    const dateEffetFr = data.dateEffet ? new Date(data.dateEffet+"T12:00:00").toLocaleDateString("fr-FR") : "—";
+    infoRows = [
+      {l:"Référence", v:ref}, {l:"Agent", v:data.agentNom||"—"},
+      {l:"Date du document", v:dateDocFr}, {l:"Date d'effet", v:dateEffetFr},
+    ];
+    bodyHTML = `<div class="doc-section-title">MOTIF DU LICENCIEMENT</div><p>${(data.motif||"(non renseigné)").replace(/\n/g,"<br>")}</p>`
+      + (data.obs ? `<div class="doc-section-title">OBSERVATIONS</div><p>${data.obs.replace(/\n/g,"<br>")}</p>` : "");
+  } else if(type==="courrier") {
+    infoRows = [
+      {l:"Référence", v:ref}, {l:"Destinataire", v:data.agentNom||"—"},
+      {l:"Date du document", v:dateDocFr}, {l:"Objet", v:data.objet||"—"},
+    ];
+    bodyHTML = `<p>${(data.corps||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+  } else {
+    infoRows = [
+      {l:"Référence", v:ref}, {l:"Date de l'incident", v:dateDocFr},
+      {l:"Heure", v:data.heure||"—"}, {l:"Lieu de l'incident", v:data.lieu||"—"},
+      {l:"Agent(s) impliqué(s)", v:data.agents||"—"}, {l:"Personne(s) impliquée(s)", v:data.personnes||"—"},
+    ];
+    bodyHTML = `<div class="doc-section-title">DESCRIPTION DES FAITS</div><p>${(data.desc||"(non renseigné)").replace(/\n/g,"<br>")}</p>
+      <div class="doc-section-title">MESURES PRISES</div><p>${(data.mesures||"(non renseigné)").replace(/\n/g,"<br>")}</p>
+      <div class="doc-section-title">SUITES DONNÉES</div><p>${(data.suites||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+  }
+
+  // Le cachet et la signature reflètent TOUJOURS qui est connecté au moment de la génération
+  const auteur = overrideAuteur || identityLabel();
+  const auteurRole = overrideRole || ROLE_LABELS[role]||role;
+  const initials = auteur.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,3);
+  const escHtml = s => (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const infoHTML = infoRows.map(r=>`<div><div class="lbl">${escHtml(r.l)}</div><div class="val">${escHtml(r.v)}</div></div>`).join("");
+
+  const css = `
+.doc-page{width:700px;background:#fff;padding:40px 40px 60px;font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;}
+.doc-hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1a1a1a;padding-bottom:14px;}
+.doc-logo-img{width:56px;height:56px;object-fit:contain;flex-shrink:0;}
+.doc-hdr-center{text-align:center;}
+.doc-hdr-center h1{font-size:22px;margin:0;}
+.doc-hdr-center .sub{font-size:11px;color:#2980B9;letter-spacing:0.1em;margin-top:2px;}
+.doc-titlebar{background:${color};color:#fff;text-align:center;font-weight:800;font-size:15px;letter-spacing:0.08em;padding:10px;margin:20px 0;border-radius:2px;}
+.doc-infobox{background:#f2f4f7;border-left:4px solid ${color};display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 18px;font-size:12px;margin-bottom:22px;}
+.doc-infobox .lbl{color:#8a94a3;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;}
+.doc-infobox .val{font-weight:700;margin-top:2px;}
+.doc-body{font-size:13px;line-height:1.7;}
+.doc-section-title{font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #ddd;padding-bottom:4px;margin:20px 0 8px;}
+.doc-footer{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;}
+.doc-signature .name{font-weight:800;color:${color};margin-top:26px;}
+.doc-signature .role{color:#666;font-size:11px;}
+.doc-stamp{border:2px solid #1a1a1a;padding:8px 14px;text-align:center;font-size:9px;}
+.doc-stamp .company{font-weight:800;font-size:10px;}
+.doc-stamp .initials{font-size:22px;font-weight:900;margin:6px 0;letter-spacing:2px;}
+.doc-refline{margin-top:30px;font-size:9px;color:#999;text-align:right;}
+`;
+
+  const html = `<div class="doc-page">
+  <div class="doc-hdr">
+    <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_SECURITE_B64}">
+    <div class="doc-hdr-center"><h1>Dog Compagnie</h1><div class="sub">SERVICE SÉCURITÉ</div></div>
+    <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_COMPAGNIE_B64}">
+  </div>
+  <div class="doc-titlebar">${escHtml(title)}</div>
+  <div class="doc-infobox">${infoHTML}</div>
+  <div class="doc-body">${bodyHTML}</div>
+  <div class="doc-footer">
+    <div>
+      Fait à Perrytonia, le ${dateDocFr}
+      <div class="doc-signature">
+        <div style="border-top:1px solid #999;width:160px;margin-top:24px;"></div>
+        <div class="name">${escHtml(auteur)}</div>
+        <div class="role">${escHtml(auteurRole)}<br>Sécurité</div>
+      </div>
+    </div>
+    <div class="doc-stamp">
+      <div class="company">DOG<br>COMPAGNIE</div>
+      <div style="font-size:8px;margin:2px 0;">Service Sécurité</div>
+      <div class="initials">${escHtml(initials)}</div>
+      <div style="font-size:8px;">${escHtml(auteurRole.toUpperCase())}<br>SÉCURITÉ</div>
+    </div>
+  </div>
+  <div class="doc-refline">${escHtml(ref)}<br>Dog Compagnie — Document officiel</div>
+</div>`;
+
+  return { css, html };
+}
+
+async function renderDocAsJPEG(data, ref, overrideAuteur, overrideRole) {
+  if(typeof html2canvas==="undefined") throw new Error("Le module de génération d'image n'a pas pu se charger (vérifiez la connexion internet).");
+  const {css, html} = buildDocInner(data, ref, overrideAuteur, overrideRole);
+  const zone = document.getElementById("doc-render-zone");
+  zone.innerHTML = `<style>${css}</style>${html}`;
+  const imgs = Array.from(zone.querySelectorAll("img"));
+  await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res=>{ img.onload=res; img.onerror=res; })));
+  await new Promise(r=>setTimeout(r,60));
+  const target = zone.querySelector(".doc-page");
+  const canvas = await html2canvas(target, {scale:2, backgroundColor:"#ffffff", useCORS:true});
+  zone.innerHTML = "";
+  return await new Promise(resolve=>{
+    canvas.toBlob(blob=>resolve(URL.createObjectURL(blob)), "image/jpeg", 0.95);
+  });
+}
+
+async function enregistrerDoc(formKind) {
+  const data = collectDocData(formKind);
+  const err = validateDoc(data);
+  if(err) { toast(err,"#E74C3C"); return; }
+  try {
+    const ref = await nextDocReference(data.type);
+    await fetch(SB_URL+"/rest/v1/documents", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({type:data.type, reference:ref, agent_nom:data.agentNom||null, data, auteur:identityLabel(), auteur_role: ROLE_LABELS[role]||role})
+    });
+    logActivity("document_cree", `${DOC_LABEL[data.type]} créé${data.agentNom?" pour "+data.agentNom:""} (réf. ${ref})`);
+    toast("✓ Document enregistré : "+ref);
+    if(formKind==="incident") loadDocHistory("incident"); else loadDocHistory("rh");
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+async function apercuDoc(formKind) {
+  const data = collectDocData(formKind);
+  const err = validateDoc(data);
+  if(err) { toast(err,"#E74C3C"); return; }
+  toast("⏳ Génération de l'aperçu…","#5D8AA8");
+  try {
+    const ref = await nextDocReference(data.type);
+    const url = await renderDocAsJPEG(data, ref);
+    window.open(url, "_blank");
+  } catch(e) {
+    console.error("apercuDoc error:", e);
+    toast("Erreur lors de la génération de l'aperçu : "+e.message,"#E74C3C");
+  }
+}
+
+async function loadDocHistory(scope) {
+  try {
+    const rows = await sb("documents?select=*&order=created_at.desc&limit=100");
+    if(scope==="rh") {
+      renderDocHistory("doc-rh-history", (rows||[]).filter(r=>["convocation","avertissement","licenciement","courrier"].includes(r.type)));
+    } else {
+      const filtered = (rows||[]).filter(r=>r.type==="incident" && (role!=="agent" || r.auteur===identityLabel()));
+      renderDocHistory("doc-incident-history", filtered);
+    }
+  } catch(e) { console.warn("loadDocHistory", e); }
+}
+function renderDocHistory(elId, rows) {
+  const el = document.getElementById(elId);
+  if(!el) return;
+  if(!rows.length) { el.innerHTML = '<div class="empty"><p>Aucun document pour le moment.</p></div>'; return; }
+  el.innerHTML = rows.map(r=>{
+    const d = new Date(r.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});
+    return `<div class="log-item">
+      <div><div class="log-agent">${esc(r.reference)} — ${esc(DOC_LABEL[r.type]||r.type)}</div><div class="log-dates">${r.agent_nom?esc(r.agent_nom)+" · ":""}${d} · par ${esc(r.auteur||"—")}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="reprintDoc('${r.id}')">👁 Revoir</button>
+    </div>`;
+  }).join("");
+}
+async function reprintDoc(id) {
+  try {
+    const rows = await sb(`documents?id=eq.${id}&select=*`);
+    if(!rows || !rows.length) return;
+    const r = rows[0];
+    const url = await renderDocAsJPEG(r.data, r.reference, r.auteur, r.auteur_role);
+    window.open(url, "_blank");
+  } catch(e) { toast("Erreur lors de l'ouverture du document : "+e.message,"#E74C3C"); }
+}
+
 let allLogsJournal = [];
 async function loadJournal() {
   const el = document.getElementById("journal-list");
@@ -788,7 +1397,7 @@ function renderJournal() {
   const statsEl = document.getElementById("journal-stats");
   const filterEl = document.getElementById("journal-filter-bar");
   if(!el) return;
-  const cats = ["Candidature","Absence","Patrouille","Compte","Service","Alerte"];
+  const cats = ["Candidature","Absence","Patrouille","Compte","Service","Alerte","Évaluation","Document"];
   if(statsEl) {
     statsEl.innerHTML = cats.map(cat=>{
       const n = allLogsJournal.filter(l=>journalMeta(l.type).label===cat).length;
@@ -878,9 +1487,12 @@ const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
   {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg"],         section:"Opérations"},
+  {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg"],         section:"Opérations"},
   {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-abs"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
+  {page:"evaluations",      icon:"🎯", label:"Évaluations agents",    roles:["responsable","pdg"],                 section:"Gestion"},
+  {page:"doc-rh",           icon:"🗂️", label:"Documents RH",          roles:["responsable","pdg"],                 section:"Gestion"},
   {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
   {page:"journal",          icon:"🗒️", label:"Journal d'activité",    roles:["admin"],                             section:"Administration"},
   {page:"candidature-form", icon:"📝", label:"Candidater au service", roles:["candidat"],                          section:""},
@@ -929,6 +1541,9 @@ function goPage(pageId) {
   if(pageId==="logs-service")      loadLogs();
   if(pageId==="admin-comptes")     loadComptes();
   if(pageId==="journal")           loadJournal();
+  if(pageId==="evaluations")       loadEvaluations();
+  if(pageId==="doc-rh")            { setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh"); }
+  if(pageId==="incident")          { prefillDocDates(); loadDocHistory("incident"); }
   if(pageId==="mon-service")       initServicePage();
   if(pageId==="absence-form") {
     const nomEl = document.getElementById("abs-nom");
@@ -1973,6 +2588,15 @@ function renderLogs() {
     <div class="stat-pill"><div class="stat-num" style="color:var(--blue-light)">${allLogs.filter(l=>l.fin).length}</div><div class="stat-lbl">Services terminés</div></div>
     <div class="stat-pill"><div class="stat-num" style="color:var(--orange-light)">${fmtDuree(totalMins)}</div><div class="stat-lbl">Total heures</div></div>`;
 
+  const sortEl = document.getElementById("logs-sort-bar");
+  if(sortEl) {
+    window._logsSort = window._logsSort||"date";
+    sortEl.innerHTML = `
+      <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;align-self:center;">Trier :</span>
+      <button class="btn btn-sm ${window._logsSort==="date"?"btn-primary":"btn-ghost"}" onclick="setLogsSort('date')">📅 Par date</button>
+      <button class="btn btn-sm ${window._logsSort==="nom"?"btn-primary":"btn-ghost"}" onclick="setLogsSort('nom')">🔤 Par nom d'agent</button>`;
+  }
+
   const canManage = (role==="responsable"||role==="pdg"||role==="admin");
   const canDelete = role==="admin";
 
@@ -2031,8 +2655,12 @@ function renderLogs() {
     </div>
     <div style="font-size:11px;font-weight:700;color:#A8CFEA;margin:14px 0 8px;">📋 Historique</div>` : "";
 
-  el.innerHTML = pendingBlock + activeBlock + allLogs.map(renderOne).join("");
+  const historique = [...allLogs];
+  if(window._logsSort==="nom") historique.sort((a,b)=>(a.agent_nom||"").localeCompare(b.agent_nom||"","fr",{sensitivity:"base"}));
+
+  el.innerHTML = pendingBlock + activeBlock + historique.map(renderOne).join("");
 }
+function setLogsSort(mode) { window._logsSort = mode; renderLogs(); }
 
 // ─── ADMIN COMPTES ─────────────────────────────────────────────────
 async function loadComptes() {
