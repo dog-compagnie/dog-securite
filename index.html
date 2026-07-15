@@ -261,6 +261,12 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .compte-nom{font-size:13px;font-weight:700;color:#fff;}
 .compte-role{font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;}
 .compte-pin{font-size:11px;color:var(--text3);font-family:monospace;letter-spacing:2px;}
+
+/* JOURNAL D'ACTIVITÉ */
+.journal-item{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-left:4px solid var(--text3);border-radius:8px;padding:11px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.journal-msg{font-size:12px;color:var(--text);line-height:1.4;}
+.journal-meta{font-size:10px;color:var(--text3);margin-top:3px;}
+.journal-time{font-size:10px;color:var(--text2);white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -538,6 +544,23 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     </div>
   </div>
 
+  <!-- PAGE JOURNAL D'ACTIVITÉ (Admin uniquement) -->
+  <div class="page" id="page-journal">
+    <div class="page-title">Journal <span>d'activité</span></div>
+    <div class="page-sub">Historique complet des actions : candidatures, absences, patrouilles, comptes.</div>
+    <div class="stats-bar" id="journal-stats"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="journal-filter-bar"></div>
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-hdr-title">🗒️ Journal</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadJournal()">🔄 Actualiser</button>
+      </div>
+      <div class="card-body" id="journal-list">
+        <div class="empty"><div class="empty-icon">🗒️</div><p>Chargement…</p></div>
+      </div>
+    </div>
+  </div>
+
   <!-- PAGE CANDIDATURES (gestion) -->
   <div class="page" id="page-candidatures">
     <div class="page-title">Candidatures <span>reçues</span></div>
@@ -581,8 +604,82 @@ const ROLE_COLORS = {agent:"rgba(41,128,185,0.2)", responsable:"rgba(155,89,182,
 const ROLE_TEXT   = {agent:"#5DADE2", responsable:"#C8A0E8", pdg:"#52D98B", candidat:"#F0A840", admin:"#F08080"};
 
 const PATROL_ORDER = ["centrale","01","02","03","04","cmd"];
+const PATROL_LABELS = {centrale:"Dog Centrale","01":"Dog 01","02":"Dog 02","03":"Dog 03","04":"Dog 04",cmd:"Dog Commandement"};
+const FIELD_LABELS = {conducteur:"Conducteur",e1:"Équipier 1",e2:"Équipier 2",e3:"Équipier 3",vehicule:"Véhicule",statut:"Statut",notes:"Notes"};
 const STATUSES = ["Disponible","Indisponible","Intervention","Convoi","Formation","Hors service"];
 const STATUS_CLS = {Disponible:"s-dispo",Indisponible:"s-indispo",Intervention:"s-inter",Convoi:"s-convoi",Formation:"s-formation","Hors service":"s-hors"};
+
+// ─── JOURNAL D'ACTIVITÉ (Admin) ──────────────────────────────────────
+const JOURNAL_TYPES = {
+  candidature_nouvelle: {color:"#5DADE2", label:"Candidature"},
+  candidature_statut:   {color:"#C8A0E8", label:"Candidature"},
+  candidature_suppr:    {color:"#F08080", label:"Candidature"},
+  absence_nouvelle:     {color:"#F0A840", label:"Absence"},
+  absence_statut:       {color:"#F0A840", label:"Absence"},
+  absence_suppr:        {color:"#F08080", label:"Absence"},
+  patrouille_maj:       {color:"#52D98B", label:"Patrouille"},
+  compte_cree:          {color:"#5DADE2", label:"Compte"},
+  compte_supprime:      {color:"#F08080", label:"Compte"},
+};
+function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
+function currentActeurLabel() {
+  return (ROLE_LABELS[role]||role) + (currentAgent ? " — "+currentAgent.prenom+" "+currentAgent.nom : "");
+}
+async function logActivity(type, message, acteur) {
+  try {
+    await fetch(SB_URL+"/rest/v1/activity_logs", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({type, message, acteur: acteur || currentActeurLabel()})
+    });
+  } catch(e) { console.warn("logActivity error:", e.message); }
+}
+
+let allLogsJournal = [];
+async function loadJournal() {
+  const el = document.getElementById("journal-list");
+  try {
+    allLogsJournal = await sb("activity_logs?select=*&order=created_at.desc&limit=300");
+    renderJournal();
+  } catch(e) {
+    if(el) el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><p>Impossible de charger le journal. La table <code>activity_logs</code> existe-t-elle sur Supabase ?</p></div>';
+  }
+}
+function renderJournal() {
+  const el = document.getElementById("journal-list");
+  const statsEl = document.getElementById("journal-stats");
+  const filterEl = document.getElementById("journal-filter-bar");
+  if(!el) return;
+  const cats = ["Candidature","Absence","Patrouille","Compte"];
+  if(statsEl) {
+    statsEl.innerHTML = cats.map(cat=>{
+      const n = allLogsJournal.filter(l=>journalMeta(l.type).label===cat).length;
+      return `<div class="stat-pill"><div class="stat-num" style="color:var(--text2)">${n}</div><div class="stat-lbl">${cat}</div></div>`;
+    }).join("") + `<div class="stat-pill"><div class="stat-num" style="color:var(--blue-light)">${allLogsJournal.length}</div><div class="stat-lbl">Total</div></div>`;
+  }
+  if(filterEl) {
+    filterEl.innerHTML = `<button class="btn btn-sm btn-ghost" onclick="filterJournal(null)">Tout (${allLogsJournal.length})</button>` +
+      cats.map(cat=>{
+        const n = allLogsJournal.filter(l=>journalMeta(l.type).label===cat).length;
+        return `<button class="btn btn-sm btn-ghost" onclick="filterJournal('${cat}')">${cat} (${n})</button>`;
+      }).join("");
+  }
+  if(!allLogsJournal.length) { el.innerHTML='<div class="empty"><div class="empty-icon">🗒️</div><p>Aucune activité enregistrée pour l\'instant.</p></div>'; return; }
+  window._journalFilter = window._journalFilter||null;
+  const shown = window._journalFilter ? allLogsJournal.filter(l=>journalMeta(l.type).label===window._journalFilter) : allLogsJournal;
+  if(!shown.length) { el.innerHTML='<div class="empty"><p>Aucun résultat pour ce filtre.</p></div>'; return; }
+  el.innerHTML = shown.map(l=>{
+    const meta = journalMeta(l.type);
+    const time = new Date(l.created_at).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    return `<div class="journal-item" style="border-left-color:${meta.color}">
+      <div>
+        <div class="journal-msg">${esc(l.message)}</div>
+        <div class="journal-meta">${esc(l.acteur||"—")} · <span style="color:${meta.color};font-weight:700;">${meta.label}</span></div>
+      </div>
+      <div class="journal-time">${time}</div>
+    </div>`;
+  }).join("");
+}
+function filterJournal(cat) { window._journalFilter = cat; renderJournal(); }
 
 // ─── TOAST ─────────────────────────────────────────────────────────
 function toast(msg, color="#52D98B") {
@@ -643,6 +740,7 @@ const NAV_CONFIG = [
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
   {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
+  {page:"journal",          icon:"🗒️", label:"Journal d'activité",    roles:["admin"],                             section:"Administration"},
   {page:"candidature-form", icon:"📝", label:"Candidater au service", roles:["candidat"],                          section:""},
 ];
 
@@ -678,6 +776,7 @@ function goPage(pageId) {
   if(pageId==="absences-gestion")  renderAbsences();
   if(pageId==="logs-service")      loadLogs();
   if(pageId==="admin-comptes")     loadComptes();
+  if(pageId==="journal")           loadJournal();
   if(pageId==="mon-service")       initServicePage();
   if(pageId==="absence-form") {
     const nomEl = document.getElementById("abs-nom");
@@ -1047,6 +1146,7 @@ async function updatePatrol(patrol_id, field, value) {
     if(idx>=0) Object.assign(patrols[idx],payload);
     else patrols.push({patrol_id,...payload});
     syncBadge("✓ Sauvegardé","#4A7F5E");
+    logActivity("patrouille_maj", `${PATROL_LABELS[patrol_id]||patrol_id} — ${FIELD_LABELS[field]||field} : "${value||"—"}"`);
     // Update only stats + timestamp cell, not the full table
     updatePatrolStats();
     const allRows = document.querySelectorAll("#patrol-table-wrap tbody tr");
@@ -1220,6 +1320,7 @@ async function soumettreCandidat() {
     });
     ynState={};
     document.querySelectorAll(".yn-btn").forEach(b=>b.classList.remove("active"));
+    logActivity("candidature_nouvelle", `Nouvelle candidature de ${prenom} ${nom}`, `${prenom} ${nom} (candidat)`);
     syncBadge("✓ Envoyé","#4A7F5E");
   } catch(e){
     console.error("Erreur candidature:",e);
@@ -1255,6 +1356,7 @@ async function soumettreAbsence() {
     });
     document.getElementById("abs-motif").value="";
     syncBadge("✓ Envoyé","#4A7F5E");
+    logActivity("absence_nouvelle", `Nouvelle absence déclarée par ${nom}`, currentAgent ? currentActeurLabel() : nom);
     await loadAll();
   } catch(e){
     console.error("Erreur absence:",e);
@@ -1319,12 +1421,14 @@ function filterAbsences(statut) {
 }
 
 async function updateAbsence(id, statut) {
-  try{await sb(`absences?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut})});await loadAll();}
+  const a = absences.find(x=>String(x.id)===String(id));
+  try{await sb(`absences?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut})}); if(a) logActivity("absence_statut", `L'absence de ${a.agent_nom} est passée en ${statut.toLowerCase()}`); await loadAll();}
   catch(e){toast("Erreur","#E74C3C");}
 }
 async function suppAbsence(id) {
   if(!confirm("Supprimer cette déclaration ?")) return;
-  try{await sb(`absences?id=eq.${id}`,{method:"DELETE"});await loadAll();}
+  const a = absences.find(x=>String(x.id)===String(id));
+  try{await sb(`absences?id=eq.${id}`,{method:"DELETE"}); if(a) logActivity("absence_suppr", `Absence de ${a.agent_nom} supprimée`); await loadAll();}
   catch(e){toast("Erreur","#E74C3C");}
 }
 
@@ -1382,12 +1486,14 @@ function renderCandidatures() {
 }
 
 async function updateCand(id, statut) {
-  try{await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut,lu:true})});await loadAll();}
+  const c = candidatures.find(x=>String(x.id)===String(id));
+  try{await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut,lu:true})}); if(c) logActivity("candidature_statut", `La candidature de ${c.prenom} ${c.nom} est passée en ${statut.toLowerCase()}`); await loadAll();}
   catch(e){toast("Erreur","#E74C3C");}
 }
 async function suppCand(id) {
   if(!confirm("Supprimer cette candidature définitivement ?")) return;
-  try{await sb(`candidatures?id=eq.${id}`,{method:"DELETE"});await loadAll();}
+  const c = candidatures.find(x=>String(x.id)===String(id));
+  try{await sb(`candidatures?id=eq.${id}`,{method:"DELETE"}); if(c) logActivity("candidature_suppr", `Candidature de ${c.prenom} ${c.nom} supprimée`); await loadAll();}
   catch(e){toast("Erreur","#E74C3C");}
 }
 
@@ -1576,6 +1682,7 @@ async function creerCompte() {
     });
     if(!r.ok) throw new Error(await r.text());
     toast("✓ Compte créé pour "+prenom+" "+nom);
+    logActivity("compte_cree", `Compte créé : ${prenom} ${nom} (${ROLE_LABELS[role_c]||role_c})`);
     document.getElementById("ac-prenom").value="";
     document.getElementById("ac-nom").value="";
     document.getElementById("ac-pin").value="";
@@ -1585,8 +1692,10 @@ async function creerCompte() {
 
 async function supprimerCompte(id) {
   if(!confirm("Supprimer ce compte ? Les logs de service associés seront aussi supprimés.")) return;
+  const c = allComptes.find(x=>String(x.id)===String(id));
   try {
     await sb("agents_comptes?id=eq."+id,{method:"DELETE"});
+    if(c) logActivity("compte_supprime", `Compte supprimé : ${c.prenom} ${c.nom}`);
     toast("✓ Compte supprimé");
     await loadComptes();
   } catch(e){ toast("Erreur suppression","#E74C3C"); }
