@@ -588,7 +588,7 @@ const sb = async (path, opts={}) => {
 // ─── STATE ─────────────────────────────────────────────────────────
 let role = null;
 let currentCompte = null; // compte individuel connecté
-let agents = JSON.parse(localStorage.getItem("dog_agents_v1")||"[]").sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+let agents = []; // rempli via Supabase (table agents_liste) dans loadAll()
 let patrols = [];
 let absences = [];
 let candidatures = [];
@@ -1003,14 +1003,16 @@ async function loadAll() {
       try { const r = await sb(path); return r||[]; }
       catch(e) { console.warn("Load failed:", path, e.message); return []; }
     };
-    const [p,a,c] = await Promise.all([
+    const [p,a,c,ag] = await Promise.all([
       tryLoad("patrouilles_live?select=*&order=patrol_id"),
       tryLoad("absences?select=*&order=created_at.desc"),
       tryLoad("candidatures?select=*&order=created_at.desc"),
+      tryLoad("agents_liste?select=nom&order=nom"),
     ]);
     patrols      = p;
     absences     = a;
     candidatures = c;
+    agents       = ag.map(x=>x.nom).sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
     syncBadge("✓ En ligne","#4A7F5E");
     updateNotifBadges();
     // Re-render page active
@@ -1106,21 +1108,35 @@ function renderAgentChips() {
   });
 }
 
-function addAgent() {
+async function addAgent() {
   const inp=document.getElementById("new-agent-inp");
   const name=inp.value.trim();
   if(!name||agents.includes(name)) return;
-  agents.push(name);
-  agents.sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
-  inp.value="";
-  localStorage.setItem("dog_agents_v1",JSON.stringify(agents));
-  renderPatrols();
-  toast("Agent ajouté : "+name);
+  try {
+    const r = await fetch(SB_URL+"/rest/v1/agents_liste", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({nom:name})
+    });
+    if(!r.ok) { const t=await r.text(); throw new Error(t); }
+    inp.value="";
+    agents.push(name);
+    agents.sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+    renderPatrols();
+    toast("Agent ajouté : "+name);
+  } catch(e) {
+    console.error("addAgent error:", e);
+    toast("Erreur lors de l'ajout de l'agent (déjà existant ?)","#E74C3C");
+  }
 }
-function removeAgent(name) {
-  agents=agents.filter(a=>a!==name);
-  localStorage.setItem("dog_agents_v1",JSON.stringify(agents));
-  renderPatrols();
+async function removeAgent(name) {
+  try {
+    await sb(`agents_liste?nom=eq.${encodeURIComponent(name)}`, {method:"DELETE"});
+    agents = agents.filter(a=>a!==name);
+    renderPatrols();
+  } catch(e) {
+    console.error("removeAgent error:", e);
+    toast("Erreur lors de la suppression de l'agent","#E74C3C");
+  }
 }
 
 async function updatePatrol(patrol_id, field, value) {
