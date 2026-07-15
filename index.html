@@ -699,7 +699,10 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
       </div>
     </div>
     <div class="card" style="max-width:920px;margin-top:20px;">
-      <div class="card-hdr"><div class="card-hdr-title">📚 Évaluations passées</div></div>
+      <div class="card-hdr">
+        <div class="card-hdr-title">📚 Évaluations passées</div>
+        <div style="display:flex;gap:8px;" id="eval-sort-bar"></div>
+      </div>
       <div class="card-body" id="eval-history"><div class="empty"><p>Chargement…</p></div></div>
     </div>
   </div>
@@ -709,13 +712,14 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     <div class="page-title">Documents <span>RH</span></div>
     <div class="page-sub">Générez des documents officiels : convocation, avertissement, licenciement, courrier.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-      <button class="btn btn-sm btn-primary" id="doc-tab-convocation" onclick="setDocTab('convocation')">📋 Convocation / Avertissement</button>
+      <button class="btn btn-sm btn-primary" id="doc-tab-convocation" onclick="setDocTab('convocation')">📋 Convocation</button>
+      <button class="btn btn-sm btn-ghost" id="doc-tab-avertissement" onclick="setDocTab('avertissement')">⚠️ Avertissement</button>
       <button class="btn btn-sm btn-ghost" id="doc-tab-licenciement" onclick="setDocTab('licenciement')">🚫 Licenciement</button>
       <button class="btn btn-sm btn-ghost" id="doc-tab-courrier" onclick="setDocTab('courrier')">✉️ Courrier Sécurité</button>
     </div>
 
     <div class="card doc-subform" id="doc-form-convocation" style="max-width:760px;">
-      <div class="card-hdr"><div class="card-hdr-title">⚠️ Nouveau — Convocation / Avertissement</div></div>
+      <div class="card-hdr"><div class="card-hdr-title">📋 Nouveau — Convocation</div></div>
       <div class="card-body">
         <div class="field-row-2">
           <div class="field"><label>Référence (auto)</label><input id="conv-ref" disabled placeholder="Générée à l'enregistrement"></div>
@@ -723,23 +727,46 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         </div>
         <div class="field-row-2">
           <div class="field"><label>Date du document *</label><input id="conv-date" type="date"></div>
-          <div class="field"><label>Type *</label>
-            <select id="conv-type">
-              <option value="convocation">Convocation</option>
-              <option value="avertissement">Avertissement</option>
-            </select>
-          </div>
+          <div class="field"><label>Date du rendez-vous</label><input id="conv-date-rdv" type="date"></div>
         </div>
         <div class="field-row-2">
-          <div class="field"><label>Date du rendez-vous</label><input id="conv-date-rdv" type="date"></div>
           <div class="field"><label>Heure du rendez-vous</label><input id="conv-heure-rdv" type="time"></div>
+          <div class="field"><label>Lieu du rendez-vous</label><input id="conv-lieu" placeholder="Lieu de la convocation…"></div>
         </div>
-        <div class="field"><label>Lieu du rendez-vous</label><input id="conv-lieu" placeholder="Lieu de la convocation…"></div>
         <div class="field"><label>Objet de la convocation</label><textarea id="conv-objet" rows="4" placeholder="Motif de la convocation, type d'entretien (embauche, bilan, disciplinaire…)"></textarea></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
           <button class="btn btn-ghost" onclick="resetDocForm('convocation')">Réinitialiser</button>
           <button class="btn btn-success" onclick="enregistrerDoc('convocation')">💾 Enregistrer</button>
           <button class="btn btn-primary" onclick="apercuDoc('convocation')">👁 Aperçu (JPG)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card doc-subform" id="doc-form-avertissement" style="max-width:760px;display:none;">
+      <div class="card-hdr"><div class="card-hdr-title">⚠️ Nouveau — Convocation / Avertissement</div></div>
+      <div class="card-body">
+        <div class="field-row-2">
+          <div class="field"><label>Référence (auto)</label><input id="avt-ref" disabled placeholder="Générée à l'enregistrement"></div>
+          <div class="field"><label>Nom de l'agent *</label><input id="avt-agent" placeholder="Prénom NOM"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Date du document *</label><input id="avt-date" type="date"></div>
+          <div class="field"><label>Type *</label>
+            <select id="avt-type">
+              <option value="Avertissement écrit">Avertissement écrit</option>
+              <option value="Avertissement oral">Avertissement oral</option>
+              <option value="Blâme">Blâme</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Objet</label><input id="avt-objet" placeholder="Motif de l'avertissement…"></div>
+        <div class="field"><label>Faits reprochés</label><textarea id="avt-faits" rows="4" placeholder="Description précise des faits…"></textarea></div>
+        <div class="field"><label>Comportement attendu</label><textarea id="avt-comportement" rows="3" placeholder="Ce qui est attendu de l'agent…"></textarea></div>
+        <div class="field"><label>Conséquences en cas de récidive</label><textarea id="avt-consequences" rows="3" placeholder="Sanctions encourues…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="resetDocForm('avertissement')">Réinitialiser</button>
+          <button class="btn btn-success" onclick="enregistrerDoc('avertissement')">💾 Enregistrer</button>
+          <button class="btn btn-primary" onclick="apercuDoc('avertissement')">👁 Aperçu (JPG)</button>
         </div>
       </div>
     </div>
@@ -839,6 +866,16 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 
 <div class="toast" id="toast"></div>
 <div id="doc-render-zone" style="position:fixed;left:-9999px;top:0;z-index:-1;"></div>
+
+<!-- ═══ APERÇU DOCUMENT (JPG) ═══ -->
+<div id="doc-preview-modal" class="alert-popup">
+  <div class="alert-popup-box" style="max-width:560px;">
+    <div class="alert-popup-title">👁 Aperçu du document</div>
+    <img id="doc-preview-img" style="max-width:100%;border-radius:8px;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,0.35);">
+    <button class="btn btn-primary btn-full" onclick="downloadDocPreview()">⬇️ Télécharger en JPG</button>
+    <button class="btn btn-ghost btn-full" onclick="closeDocPreview()" style="margin-top:8px;">Fermer</button>
+  </div>
+</div>
 
 <script>
 const SB_URL = "https://mrcbbkthunfrijpmbqak.supabase.co";
@@ -1051,7 +1088,7 @@ async function enregistrerEvaluation() {
   const verdict = computeVerdict(pct, eliminated);
   const criteresData = EVAL_CRITERES.map((c,i)=>({...c, statut: evalState[i]||"non_note"}));
   try {
-    await fetch(SB_URL+"/rest/v1/evaluations", {
+    const r = await fetch(SB_URL+"/rest/v1/evaluations", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
       body: JSON.stringify({
         agent_nom:agentNom, date_eval:dateEval, evaluateur:identityLabel(),
@@ -1059,6 +1096,7 @@ async function enregistrerEvaluation() {
         pourcentage:pct, verdict, notes:document.getElementById("eval-notes").value.trim()||null
       })
     });
+    if(!r.ok) throw new Error(await r.text());
     logActivity("evaluation_creee", `Évaluation de ${agentNom} enregistrée (${verdict}, ${pct}%)`);
     toast("✓ Évaluation enregistrée");
     evalState = {};
@@ -1080,11 +1118,22 @@ async function loadEvaluations() {
     renderEvalHistory(rows||[]);
   } catch(e) { console.warn("loadEvaluations", e); }
 }
+let allEvals = [];
 function renderEvalHistory(rows) {
+  if(rows) allEvals = rows;
   const el = document.getElementById("eval-history");
+  const sortEl = document.getElementById("eval-sort-bar");
+  if(sortEl) {
+    window._evalSort = window._evalSort||"date";
+    sortEl.innerHTML = `
+      <button class="btn btn-sm ${window._evalSort==="date"?"btn-primary":"btn-ghost"}" onclick="setEvalSort('date')">📅 Par date</button>
+      <button class="btn btn-sm ${window._evalSort==="nom"?"btn-primary":"btn-ghost"}" onclick="setEvalSort('nom')">🔤 Par agent</button>`;
+  }
   if(!el) return;
-  if(!rows.length) { el.innerHTML = '<div class="empty"><p>Aucune évaluation enregistrée.</p></div>'; return; }
-  el.innerHTML = rows.map(r=>{
+  if(!allEvals.length) { el.innerHTML = '<div class="empty"><p>Aucune évaluation enregistrée.</p></div>'; return; }
+  const list = [...allEvals];
+  if(window._evalSort==="nom") list.sort((a,b)=>(a.agent_nom||"").localeCompare(b.agent_nom||"","fr",{sensitivity:"base"}));
+  el.innerHTML = list.map(r=>{
     const d = new Date(r.date_eval+"T12:00:00").toLocaleDateString("fr-FR");
     const vcolor = (VERDICT_META[r.verdict]||{}).color || "#fff";
     return `<div class="log-item">
@@ -1096,6 +1145,7 @@ function renderEvalHistory(rows) {
     </div>`;
   }).join("");
 }
+function setEvalSort(mode) { window._evalSort = mode; renderEvalHistory(); }
 
 // ─── DOCUMENTS OFFICIELS (Convocation/Avertissement, Licenciement, Courrier, Rapport d'incident) ──
 const DOC_PREFIX = {convocation:"CON", avertissement:"AVT", licenciement:"LIC", courrier:"COU", incident:"INC"};
@@ -1103,14 +1153,14 @@ const DOC_LABEL  = {convocation:"Convocation", avertissement:"Avertissement", li
 const DOC_COLOR  = {convocation:"#8B5A2B", avertissement:"#8B5A2B", licenciement:"#7B1F1F", courrier:"#1F4E7B", incident:"#7B1F1F"};
 
 function prefillDocDates() {
-  ["conv-date","lic-date","cou-date","inc-date"].forEach(id=>{
+  ["conv-date","avt-date","lic-date","cou-date","inc-date"].forEach(id=>{
     const el = document.getElementById(id);
     if(el && !el.value) el.value = todayISO();
   });
 }
 
 function setDocTab(tab) {
-  ["convocation","licenciement","courrier"].forEach(t=>{
+  ["convocation","avertissement","licenciement","courrier"].forEach(t=>{
     const form = document.getElementById("doc-form-"+t);
     if(form) form.style.display = t===tab ? "block" : "none";
     const btn = document.getElementById("doc-tab-"+t);
@@ -1121,6 +1171,7 @@ function setDocTab(tab) {
 function resetDocForm(kind) {
   const ids = {
     convocation: ["conv-agent","conv-date-rdv","conv-heure-rdv","conv-lieu","conv-objet"],
+    avertissement: ["avt-agent","avt-objet","avt-faits","avt-comportement","avt-consequences"],
     licenciement: ["lic-agent","lic-date-effet","lic-motif","lic-obs"],
     courrier: ["cou-agent","cou-objet","cou-corps"],
     incident: ["inc-heure","inc-lieu","inc-agents","inc-personnes","inc-desc","inc-mesures","inc-suites"],
@@ -1131,13 +1182,25 @@ function resetDocForm(kind) {
 function collectDocData(kind) {
   if(kind==="convocation") {
     return {
-      type: document.getElementById("conv-type").value,
+      type: "convocation",
       agentNom: document.getElementById("conv-agent").value.trim(),
       dateDoc: document.getElementById("conv-date").value || todayISO(),
       dateRdv: document.getElementById("conv-date-rdv").value,
       heureRdv: document.getElementById("conv-heure-rdv").value,
       lieu: document.getElementById("conv-lieu").value.trim(),
       objet: document.getElementById("conv-objet").value.trim(),
+    };
+  }
+  if(kind==="avertissement") {
+    return {
+      type: "avertissement",
+      sousType: document.getElementById("avt-type").value,
+      agentNom: document.getElementById("avt-agent").value.trim(),
+      dateDoc: document.getElementById("avt-date").value || todayISO(),
+      objet: document.getElementById("avt-objet").value.trim(),
+      faits: document.getElementById("avt-faits").value.trim(),
+      comportement: document.getElementById("avt-comportement").value.trim(),
+      consequences: document.getElementById("avt-consequences").value.trim(),
     };
   }
   if(kind==="licenciement") {
@@ -1203,20 +1266,26 @@ const LOGO_SECURITE_B64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGB
 function buildDocInner(data, ref, overrideAuteur, overrideRole) {
   const type = data.type;
   const color = DOC_COLOR[type]||"#333";
-  const title = (DOC_LABEL[type]||type).toUpperCase();
+  const title = type==="avertissement" ? (data.sousType||"Avertissement").toUpperCase() : (DOC_LABEL[type]||type).toUpperCase();
   const dateDocFr = data.dateDoc ? new Date(data.dateDoc+"T12:00:00").toLocaleDateString("fr-FR") : "—";
   let infoRows, bodyHTML;
 
-  if(type==="convocation" || type==="avertissement") {
+  if(type==="convocation") {
     const dateRdvFr = data.dateRdv ? new Date(data.dateRdv+"T12:00:00").toLocaleDateString("fr-FR") : "—";
     infoRows = [
       {l:"Référence", v:ref}, {l:"Agent", v:data.agentNom||"—"},
-      {l:"Date du document", v:dateDocFr}, {l:"Type", v:DOC_LABEL[type]},
+      {l:"Date du document", v:dateDocFr}, {l:"Type", v:"Convocation"},
     ];
-    const intro = type==="avertissement"
-      ? `Le présent avertissement est notifié à ${data.agentNom||"l'agent concerné"} en date du ${dateDocFr}.`
-      : `Vous êtes convoqué(e) le ${dateRdvFr} à ${data.heureRdv||"—"} au lieu suivant : ${data.lieu||"—"}.`;
-    bodyHTML = `<p>${intro}</p><div class="doc-section-title">OBJET DE LA ${type==="avertissement"?"NOTIFICATION":"CONVOCATION"}</div><p>${(data.objet||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+    bodyHTML = `<p>Vous êtes convoqué(e) le ${dateRdvFr} à ${data.heureRdv||"—"} au lieu suivant : ${data.lieu||"—"}.</p><div class="doc-section-title">OBJET DE LA CONVOCATION</div><p>${(data.objet||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+  } else if(type==="avertissement") {
+    infoRows = [
+      {l:"Référence", v:ref}, {l:"Agent", v:data.agentNom||"—"},
+      {l:"Date du document", v:dateDocFr}, {l:"Type", v:data.sousType||"Avertissement écrit"},
+      {l:"Objet", v:data.objet||"—"},
+    ];
+    bodyHTML = `<div class="doc-section-title">FAITS REPROCHÉS</div><p>${(data.faits||"(non renseigné)").replace(/\n/g,"<br>")}</p>
+      <div class="doc-section-title">COMPORTEMENT ATTENDU</div><p>${(data.comportement||"(non renseigné)").replace(/\n/g,"<br>")}</p>
+      <div class="doc-section-title">CONSÉQUENCES EN CAS DE RÉCIDIVE</div><p>${(data.consequences||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
   } else if(type==="licenciement") {
     const dateEffetFr = data.dateEffet ? new Date(data.dateEffet+"T12:00:00").toLocaleDateString("fr-FR") : "—";
     infoRows = [
@@ -1324,14 +1393,37 @@ async function enregistrerDoc(formKind) {
   if(err) { toast(err,"#E74C3C"); return; }
   try {
     const ref = await nextDocReference(data.type);
-    await fetch(SB_URL+"/rest/v1/documents", {
+    const r = await fetch(SB_URL+"/rest/v1/documents", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
       body: JSON.stringify({type:data.type, reference:ref, agent_nom:data.agentNom||null, data, auteur:identityLabel(), auteur_role: ROLE_LABELS[role]||role})
     });
+    if(!r.ok) throw new Error(await r.text());
     logActivity("document_cree", `${DOC_LABEL[data.type]} créé${data.agentNom?" pour "+data.agentNom:""} (réf. ${ref})`);
     toast("✓ Document enregistré : "+ref);
     if(formKind==="incident") loadDocHistory("incident"); else loadDocHistory("rh");
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+let _docPreviewUrl = null;
+let _docPreviewRef = null;
+function showDocPreview(url, ref) {
+  _docPreviewUrl = url;
+  _docPreviewRef = ref;
+  const img = document.getElementById("doc-preview-img");
+  if(img) img.src = url;
+  document.getElementById("doc-preview-modal")?.classList.add("show");
+}
+function closeDocPreview() {
+  document.getElementById("doc-preview-modal")?.classList.remove("show");
+}
+function downloadDocPreview() {
+  if(!_docPreviewUrl) return;
+  const a = document.createElement("a");
+  a.href = _docPreviewUrl;
+  a.download = (_docPreviewRef||"document")+".jpg";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 async function apercuDoc(formKind) {
@@ -1342,7 +1434,7 @@ async function apercuDoc(formKind) {
   try {
     const ref = await nextDocReference(data.type);
     const url = await renderDocAsJPEG(data, ref);
-    window.open(url, "_blank");
+    showDocPreview(url, ref);
   } catch(e) {
     console.error("apercuDoc error:", e);
     toast("Erreur lors de la génération de l'aperçu : "+e.message,"#E74C3C");
@@ -1378,7 +1470,7 @@ async function reprintDoc(id) {
     if(!rows || !rows.length) return;
     const r = rows[0];
     const url = await renderDocAsJPEG(r.data, r.reference, r.auteur, r.auteur_role);
-    window.open(url, "_blank");
+    showDocPreview(url, r.reference);
   } catch(e) { toast("Erreur lors de l'ouverture du document : "+e.message,"#E74C3C"); }
 }
 
@@ -2725,3 +2817,4 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
