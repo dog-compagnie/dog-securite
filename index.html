@@ -285,7 +285,9 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .eval-btn.active-acquis{background:rgba(30,132,73,0.25);border-color:var(--green);color:#52D98B;}
 .eval-btn.active-insuffisant{background:rgba(211,84,0,0.25);border-color:var(--orange);color:#F0A840;}
 .eval-btn.active-nn{background:rgba(60,80,100,0.3);border-color:#4A5A6A;color:#7F9AB0;}
-.eval-elim-badge{background:rgba(192,57,43,0.2);color:#F08080;border:1px solid rgba(192,57,43,0.4);font-size:9px;font-weight:800;padding:3px 7px;border-radius:6px;}
+.eval-elim-badge{background:rgba(192,57,43,0.08);color:#8a5050;border:1.5px solid rgba(192,57,43,0.3);font-size:9px;font-weight:800;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:inherit;}
+.eval-elim-badge:hover{background:rgba(192,57,43,0.2);}
+.eval-elim-badge.active{background:rgba(192,57,43,0.35);color:#fff;border-color:#C0392B;}
 
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE — mobile & tablette uniquement (≤860px)
@@ -931,7 +933,9 @@ const JOURNAL_TYPES = {
   service_debut_refuse: {color:"#F08080", label:"Service"},
   alerte_envoyee:        {color:"#D35400", label:"Alerte"},
   evaluation_creee:      {color:"#9B59B6", label:"Évaluation"},
+  evaluation_supprimee:  {color:"#F08080", label:"Évaluation"},
   document_cree:         {color:"#1F4E7B", label:"Document"},
+  document_supprime:     {color:"#F08080", label:"Document"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
 function currentActeurLabel() {
@@ -1012,6 +1016,7 @@ const EVAL_CRITERES = [
   {cat:"Communication & commandement", nom:"Comptes-rendus de situation cohérents", max:3, elim:false},
 ];
 let evalState = {};
+let evalElim = {};
 
 function renderEvalTable() {
   const tbody = document.getElementById("eval-tbody");
@@ -1030,7 +1035,7 @@ function renderEvalTable() {
       <td class="center"><button class="eval-btn ${st==="acquis"?"active-acquis":""}" onclick="setEvalState(${i},'acquis')">✓</button></td>
       <td class="center"><button class="eval-btn ${st==="insuffisant"?"active-insuffisant":""}" onclick="setEvalState(${i},'insuffisant')">~</button></td>
       <td class="center"><button class="eval-btn ${st==="non_note"?"active-nn":""}" onclick="setEvalState(${i},'non_note')">NN</button></td>
-      <td class="center">${c.elim?'<span class="eval-elim-badge">ÉLIM</span>':"—"}</td>
+      <td class="center">${c.elim?`<button class="eval-elim-badge ${evalElim[i]?"active":""}" onclick="toggleElim(${i})" title="Marquer ce critère comme éliminatoire pour cette évaluation">ÉLIM</button>`:"—"}</td>
       <td class="center" style="font-weight:800;">${score===null?"—":score}</td>
     </tr>`;
   });
@@ -1038,6 +1043,7 @@ function renderEvalTable() {
   updateEvalVerdict();
 }
 function setEvalState(i, state) { evalState[i] = state; renderEvalTable(); }
+function toggleElim(i) { evalElim[i] = !evalElim[i]; renderEvalTable(); }
 
 function computeVerdict(pct, eliminated) {
   if(eliminated) return "Éliminé";
@@ -1059,8 +1065,9 @@ function updateEvalVerdict() {
     anyGraded = true;
     max += c.max;
     if(st==="acquis") achieved += c.max;
-    if(st==="insuffisant") { achieved += c.max*0.5; if(c.elim) eliminated=true; }
+    if(st==="insuffisant") achieved += c.max*0.5;
   });
+  EVAL_CRITERES.forEach((c,i)=>{ if(c.elim && evalElim[i]) eliminated = true; });
   const pct = max>0 ? Math.round((achieved/max)*100) : 0;
   const bar = document.getElementById("eval-verdict-bar");
   const txt = document.getElementById("eval-verdict-text");
@@ -1086,7 +1093,7 @@ async function enregistrerEvaluation() {
   const {pct, eliminated, achieved, max, anyGraded} = updateEvalVerdict();
   if(!anyGraded) { toast("Merci de compléter au moins un critère.","#E74C3C"); return; }
   const verdict = computeVerdict(pct, eliminated);
-  const criteresData = EVAL_CRITERES.map((c,i)=>({...c, statut: evalState[i]||"non_note"}));
+  const criteresData = EVAL_CRITERES.map((c,i)=>({...c, statut: evalState[i]||"non_note", eliminatoire_coche: !!evalElim[i]}));
   try {
     const r = await fetch(SB_URL+"/rest/v1/evaluations", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
@@ -1100,6 +1107,7 @@ async function enregistrerEvaluation() {
     logActivity("evaluation_creee", `Évaluation de ${agentNom} enregistrée (${verdict}, ${pct}%)`);
     toast("✓ Évaluation enregistrée");
     evalState = {};
+    evalElim = {};
     document.getElementById("eval-agent").value="";
     document.getElementById("eval-notes").value="";
     renderEvalTable();
@@ -1138,14 +1146,27 @@ function renderEvalHistory(rows) {
     const vcolor = (VERDICT_META[r.verdict]||{}).color || "#fff";
     return `<div class="log-item">
       <div><div class="log-agent">${esc(r.agent_nom)}</div><div class="log-dates">${d} · évalué par ${esc(r.evaluateur||"—")}</div></div>
-      <div style="text-align:right;">
-        <div style="font-weight:800;color:${vcolor}">${esc(r.verdict)}</div>
-        <div style="font-size:11px;color:var(--text2);">${r.pourcentage}%</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="text-align:right;">
+          <div style="font-weight:800;color:${vcolor}">${esc(r.verdict)}</div>
+          <div style="font-size:11px;color:var(--text2);">${r.pourcentage}%</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteEvaluation('${r.id}')">🗑</button>
       </div>
     </div>`;
   }).join("");
 }
 function setEvalSort(mode) { window._evalSort = mode; renderEvalHistory(); }
+async function deleteEvaluation(id) {
+  if(!confirm("Supprimer définitivement cette évaluation ?")) return;
+  const ev = allEvals.find(x=>String(x.id)===String(id));
+  try {
+    await sb(`evaluations?id=eq.${id}`, {method:"DELETE"});
+    if(ev) logActivity("evaluation_supprimee", `Évaluation de ${ev.agent_nom} supprimée`);
+    toast("✓ Évaluation supprimée");
+    loadEvaluations();
+  } catch(e) { toast("Erreur lors de la suppression : "+e.message,"#E74C3C"); }
+}
 
 // ─── DOCUMENTS OFFICIELS (Convocation/Avertissement, Licenciement, Courrier, Rapport d'incident) ──
 const DOC_PREFIX = {convocation:"CON", avertissement:"AVT", licenciement:"LIC", courrier:"COU", incident:"INC"};
@@ -1455,14 +1476,27 @@ async function loadDocHistory(scope) {
 function renderDocHistory(elId, rows) {
   const el = document.getElementById(elId);
   if(!el) return;
+  const scope = elId==="doc-incident-history" ? "incident" : "rh";
   if(!rows.length) { el.innerHTML = '<div class="empty"><p>Aucun document pour le moment.</p></div>'; return; }
   el.innerHTML = rows.map(r=>{
     const d = new Date(r.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});
     return `<div class="log-item">
       <div><div class="log-agent">${esc(r.reference)} — ${esc(DOC_LABEL[r.type]||r.type)}</div><div class="log-dates">${r.agent_nom?esc(r.agent_nom)+" · ":""}${d} · par ${esc(r.auteur||"—")}</div></div>
-      <button class="btn btn-ghost btn-sm" onclick="reprintDoc('${r.id}')">👁 Revoir</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="reprintDoc('${r.id}')">👁 Revoir</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDocument('${r.id}','${scope}')">🗑</button>
+      </div>
     </div>`;
   }).join("");
+}
+async function deleteDocument(id, scope) {
+  if(!confirm("Supprimer définitivement ce document ?")) return;
+  try {
+    await sb(`documents?id=eq.${id}`, {method:"DELETE"});
+    logActivity("document_supprime", `Document supprimé (id ${id})`);
+    toast("✓ Document supprimé");
+    loadDocHistory(scope);
+  } catch(e) { toast("Erreur lors de la suppression : "+e.message,"#E74C3C"); }
 }
 async function reprintDoc(id) {
   try {
