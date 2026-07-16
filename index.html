@@ -879,6 +879,15 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   </div>
 </div>
 
+<!-- ═══ DÉTAIL D'UNE ÉVALUATION ═══ -->
+<div id="eval-detail-modal" class="alert-popup">
+  <div class="alert-popup-box" style="max-width:600px;max-height:85vh;overflow-y:auto;text-align:left;">
+    <div class="alert-popup-title" style="text-align:center;">☑ Détail de l'évaluation</div>
+    <div id="eval-detail-content"></div>
+    <button class="btn btn-ghost btn-full" onclick="closeEvalDetail()" style="margin-top:14px;">Fermer</button>
+  </div>
+</div>
+
 <script>
 const SB_URL = "https://mrcbbkthunfrijpmbqak.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY2Jia3RodW5mcmlqcG1icWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDI0MjEsImV4cCI6MjA5OTYxODQyMX0.6GNyG8oK2cMV4v5qDiEhACZQ3WI69tPJ_cRlpCjcDHg";
@@ -1151,6 +1160,7 @@ function renderEvalHistory(rows) {
           <div style="font-weight:800;color:${vcolor}">${esc(r.verdict)}</div>
           <div style="font-size:11px;color:var(--text2);">${r.pourcentage}%</div>
         </div>
+        <button class="btn btn-ghost btn-sm" onclick="viewEvaluationDetail('${r.id}')">👁 Voir</button>
         <button class="btn btn-danger btn-sm" onclick="deleteEvaluation('${r.id}')">🗑</button>
       </div>
     </div>`;
@@ -1166,6 +1176,47 @@ async function deleteEvaluation(id) {
     toast("✓ Évaluation supprimée");
     loadEvaluations();
   } catch(e) { toast("Erreur lors de la suppression : "+e.message,"#E74C3C"); }
+}
+
+const EVAL_STATUT_META = {
+  acquis:     {label:"✓ Acquis",      color:"#52D98B"},
+  insuffisant:{label:"~ Insuffisant", color:"#F0A840"},
+  non_note:   {label:"NN Non noté",   color:"#7F9AB0"},
+};
+function viewEvaluationDetail(id) {
+  const ev = allEvals.find(x=>String(x.id)===String(id));
+  if(!ev) return;
+  const d = new Date(ev.date_eval+"T12:00:00").toLocaleDateString("fr-FR");
+  const meta = VERDICT_META[ev.verdict]||{};
+  const rows = (ev.criteres||[]).map(c=>{
+    const sm = EVAL_STATUT_META[c.statut]||{label:c.statut, color:"#fff"};
+    return `<tr style="border-bottom:1px solid rgba(41,128,185,0.06);">
+      <td style="padding:7px 10px;font-size:12px;color:var(--text);">${esc(c.nom)}</td>
+      <td class="center" style="padding:7px;font-size:11px;font-weight:700;color:${sm.color};white-space:nowrap;">${sm.label}</td>
+      <td class="center" style="padding:7px;font-size:11px;">${c.eliminatoire_coche?'<span style="color:#F08080;font-weight:800;">ÉLIM</span>':"—"}</td>
+    </tr>`;
+  }).join("");
+  const content = document.getElementById("eval-detail-content");
+  if(!content) return;
+  content.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:800;color:#fff;">${esc(ev.agent_nom)}</div>
+      <div style="font-size:12px;color:var(--text2);">${d} · évalué par ${esc(ev.evaluateur||"—")}</div>
+      <div style="margin-top:8px;font-weight:800;color:${meta.color||"#fff"};">${meta.icon||""} ${esc(ev.verdict)} <span style="font-weight:400;color:var(--text2);">— ${ev.pourcentage}% (${ev.score_total}/${ev.score_max} pts)</span></div>
+      ${ev.notes ? `<div style="margin-top:8px;font-size:12px;color:var(--text);background:rgba(41,128,185,0.06);border-left:3px solid var(--blue);padding:8px 12px;border-radius:0 6px 6px 0;font-style:italic;">${esc(ev.notes)}</div>` : ""}
+    </div>
+    <div class="patrol-table-wrap">
+      <table style="min-width:0;">
+        <thead><tr>
+          <th style="padding:8px 10px;">Critère</th><th class="center">Statut</th><th class="center">Élim.</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  document.getElementById("eval-detail-modal")?.classList.add("show");
+}
+function closeEvalDetail() {
+  document.getElementById("eval-detail-modal")?.classList.remove("show");
 }
 
 // ─── DOCUMENTS OFFICIELS (Convocation/Avertissement, Licenciement, Courrier, Rapport d'incident) ──
@@ -1613,7 +1664,7 @@ const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
   {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg"],         section:"Opérations"},
-  {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg"],         section:"Opérations"},
+  {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg"],         section:"Opérations", badgeId:"nav-badge-inc"},
   {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-abs"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
@@ -1691,6 +1742,8 @@ function viewerKey() {
   return null;
 }
 
+let incidentDocs = [];
+
 function getNotifications() {
   const canSee = (role==="responsable"||role==="pdg"||role==="admin");
   if(!canSee) return [];
@@ -1715,6 +1768,13 @@ function getNotifications() {
       list.push({type:"abs", id:a.id, icon:"📅", text:`L'absence de ${a.agent_nom||"un agent"} est passée en ${cur.toLowerCase()}`, time:a.created_at});
     }
   });
+  incidentDocs.forEach(r=>{
+    const seen = (r.vus_par||{})[vk];
+    if(seen===undefined) {
+      const lieu = (r.data && r.data.lieu) ? " — "+r.data.lieu : "";
+      list.push({type:"inc", id:r.id, icon:"🚨", text:`Nouveau rapport d'incident (${r.reference}) par ${r.auteur||"un agent"}${lieu}`, time:r.created_at});
+    }
+  });
   list.sort((x,y)=> new Date(y.time||0) - new Date(x.time||0));
   return list;
 }
@@ -1723,7 +1783,8 @@ function computeNotifCounts() {
   const notifs = getNotifications();
   const cand = notifs.filter(n=>n.type==="cand").length;
   const abs  = notifs.filter(n=>n.type==="abs").length;
-  return {cand, abs, total:notifs.length};
+  const inc  = notifs.filter(n=>n.type==="inc").length;
+  return {cand, abs, inc, total:notifs.length};
 }
 
 function fmtNotifTime(ts) {
@@ -1773,13 +1834,20 @@ async function markOneSeen(type, id) {
     vus[vk] = c.statut||"Nouvelle";
     try { await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); c.vus_par = vus; }
     catch(e) { console.warn("markOneSeen cand error:", e.message); }
-  } else {
+  } else if(type==="abs") {
     const a = absences.find(x=>String(x.id)===String(id));
     if(!a) return;
     const vus = Object.assign({}, a.vus_par||{});
     vus[vk] = a.statut||"En attente";
     try { await sb(`absences?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); a.vus_par = vus; }
     catch(e) { console.warn("markOneSeen abs error:", e.message); }
+  } else if(type==="inc") {
+    const r = incidentDocs.find(x=>String(x.id)===String(id));
+    if(!r) return;
+    const vus = Object.assign({}, r.vus_par||{});
+    vus[vk] = true;
+    try { await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); r.vus_par = vus; }
+    catch(e) { console.warn("markOneSeen inc error:", e.message); }
   }
 }
 
@@ -1787,7 +1855,8 @@ async function handleNotifClick(type, id) {
   closeNotifPanel();
   await markOneSeen(type, id);
   updateNotifBadges();
-  goPage(type==="cand" ? "candidatures" : "absences-gestion");
+  const pages = {cand:"candidatures", abs:"absences-gestion", inc:"incident"};
+  goPage(pages[type]||"candidatures");
 }
 
 async function markAllNotifsSeen() {
@@ -1798,7 +1867,7 @@ async function markAllNotifsSeen() {
 }
 
 function updateNotifBadges() {
-  const {cand, abs, total} = computeNotifCounts();
+  const {cand, abs, inc, total} = computeNotifCounts();
   const dot = document.getElementById("notif-dot");
   const bell = document.getElementById("notif-bell");
   if(dot)  { dot.textContent = total; dot.style.display = total>0 ? "flex" : "none"; }
@@ -1807,6 +1876,8 @@ function updateNotifBadges() {
   if(navCand) { navCand.textContent = cand; navCand.style.display = cand>0 ? "inline-flex" : "none"; }
   const navAbs = document.getElementById("nav-badge-abs");
   if(navAbs)  { navAbs.textContent = abs; navAbs.style.display = abs>0 ? "inline-flex" : "none"; }
+  const navInc = document.getElementById("nav-badge-inc");
+  if(navInc)  { navInc.textContent = inc; navInc.style.display = inc>0 ? "inline-flex" : "none"; }
   const panel = document.getElementById("notif-panel");
   if(panel && panel.classList.contains("show")) renderNotifPanel();
 }
@@ -1898,17 +1969,19 @@ async function loadAll() {
       try { const r = await sb(path); return r||[]; }
       catch(e) { console.warn("Load failed:", path, e.message); return []; }
     };
-    const [p,a,c,ag,al] = await Promise.all([
+    const [p,a,c,ag,al,inc] = await Promise.all([
       tryLoad("patrouilles_live?select=*&order=patrol_id"),
       tryLoad("absences?select=*&order=created_at.desc"),
       tryLoad("candidatures?select=*&order=created_at.desc"),
       tryLoad("agents_liste?select=nom&order=nom"),
       tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1"),
+      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,created_at&type=eq.incident&order=created_at.desc&limit=100"),
     ]);
     patrols      = p;
     absences     = a;
     candidatures = c;
     agents       = ag.map(x=>x.nom).sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
+    incidentDocs = inc;
     syncBadge("✓ En ligne","#4A7F5E");
     updateNotifBadges();
     checkAlerte(al && al[0] ? al[0] : null);
