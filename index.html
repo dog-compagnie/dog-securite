@@ -841,7 +841,6 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         </div>
         <div class="field"><label>Description des faits *</label><textarea id="inc-desc" rows="5" placeholder="Décrivez chronologiquement les faits…"></textarea></div>
         <div class="field"><label>Mesures prises</label><textarea id="inc-mesures" rows="3" placeholder="Actions menées, interventions…"></textarea></div>
-        <div class="field"><label>Suites données</label><textarea id="inc-suites" rows="3" placeholder="Dépôt de plainte, signalement, sanction…"></textarea></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
           <button class="btn btn-ghost" onclick="resetDocForm('incident')">Réinitialiser</button>
           <button class="btn btn-success" onclick="enregistrerDoc('incident')">💾 Enregistrer</button>
@@ -885,6 +884,15 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     <div class="alert-popup-title" style="text-align:center;">☑ Détail de l'évaluation</div>
     <div id="eval-detail-content"></div>
     <button class="btn btn-ghost btn-full" onclick="closeEvalDetail()" style="margin-top:14px;">Fermer</button>
+  </div>
+</div>
+
+<!-- ═══ DÉTAIL / SUIVI D'UN RAPPORT D'INCIDENT ═══ -->
+<div id="incident-detail-modal" class="alert-popup">
+  <div class="alert-popup-box" style="max-width:640px;max-height:85vh;overflow-y:auto;text-align:left;">
+    <div class="alert-popup-title" style="text-align:center;">🚨 Détail du rapport</div>
+    <div id="incident-detail-content"></div>
+    <button class="btn btn-ghost btn-full" onclick="closeIncidentDetail()" style="margin-top:14px;">Fermer</button>
   </div>
 </div>
 
@@ -945,6 +953,8 @@ const JOURNAL_TYPES = {
   evaluation_supprimee:  {color:"#F08080", label:"Évaluation"},
   document_cree:         {color:"#1F4E7B", label:"Document"},
   document_supprime:     {color:"#F08080", label:"Document"},
+  incident_statut:       {color:"#F0A840", label:"Document"},
+  incident_suivi:        {color:"#5DADE2", label:"Document"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
 function currentActeurLabel() {
@@ -1246,7 +1256,7 @@ function resetDocForm(kind) {
     avertissement: ["avt-agent","avt-objet","avt-faits","avt-comportement","avt-consequences"],
     licenciement: ["lic-agent","lic-date-effet","lic-motif","lic-obs"],
     courrier: ["cou-agent","cou-objet","cou-corps"],
-    incident: ["inc-heure","inc-lieu","inc-agents","inc-personnes","inc-desc","inc-mesures","inc-suites"],
+    incident: ["inc-heure","inc-lieu","inc-agents","inc-personnes","inc-desc","inc-mesures"],
   }[kind]||[];
   ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
 }
@@ -1304,7 +1314,6 @@ function collectDocData(kind) {
       personnes: document.getElementById("inc-personnes").value.trim(),
       desc: document.getElementById("inc-desc").value.trim(),
       mesures: document.getElementById("inc-mesures").value.trim(),
-      suites: document.getElementById("inc-suites").value.trim(),
     };
   }
   return {};
@@ -1379,8 +1388,7 @@ function buildDocInner(data, ref, overrideAuteur, overrideRole) {
       {l:"Agent(s) impliqué(s)", v:data.agents||"—"}, {l:"Personne(s) impliquée(s)", v:data.personnes||"—"},
     ];
     bodyHTML = `<div class="doc-section-title">DESCRIPTION DES FAITS</div><p>${(data.desc||"(non renseigné)").replace(/\n/g,"<br>")}</p>
-      <div class="doc-section-title">MESURES PRISES</div><p>${(data.mesures||"(non renseigné)").replace(/\n/g,"<br>")}</p>
-      <div class="doc-section-title">SUITES DONNÉES</div><p>${(data.suites||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+      <div class="doc-section-title">MESURES PRISES</div><p>${(data.mesures||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
   }
 
   // Le cachet et la signature reflètent TOUJOURS qui est connecté au moment de la génération
@@ -1465,9 +1473,11 @@ async function enregistrerDoc(formKind) {
   if(err) { toast(err,"#E74C3C"); return; }
   try {
     const ref = await nextDocReference(data.type);
+    const payload = {type:data.type, reference:ref, agent_nom:data.agentNom||null, data, auteur:identityLabel(), auteur_role: ROLE_LABELS[role]||role};
+    if(data.type==="incident") { payload.statut = "À traiter"; payload.suivi = []; }
     const r = await fetch(SB_URL+"/rest/v1/documents", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
-      body: JSON.stringify({type:data.type, reference:ref, agent_nom:data.agentNom||null, data, auteur:identityLabel(), auteur_role: ROLE_LABELS[role]||role})
+      body: JSON.stringify(payload)
     });
     if(!r.ok) throw new Error(await r.text());
     logActivity("document_cree", `${DOC_LABEL[data.type]} créé${data.agentNom?" pour "+data.agentNom:""} (réf. ${ref})`);
@@ -1524,6 +1534,9 @@ async function loadDocHistory(scope) {
     }
   } catch(e) { console.warn("loadDocHistory", e); }
 }
+const INCIDENT_STATUTS = ["À traiter","En cours","Clôturé","Annulé"];
+const INCIDENT_STATUT_COLOR = {"À traiter":"#F0A840","En cours":"#5DADE2","Clôturé":"#52D98B","Annulé":"#F08080"};
+
 function renderDocHistory(elId, rows) {
   const el = document.getElementById(elId);
   if(!el) return;
@@ -1531,9 +1544,17 @@ function renderDocHistory(elId, rows) {
   if(!rows.length) { el.innerHTML = '<div class="empty"><p>Aucun document pour le moment.</p></div>'; return; }
   el.innerHTML = rows.map(r=>{
     const d = new Date(r.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});
+    const isIncident = r.type==="incident";
+    const statut = r.statut||"À traiter";
+    const sc = INCIDENT_STATUT_COLOR[statut]||"#fff";
     return `<div class="log-item">
-      <div><div class="log-agent">${esc(r.reference)} — ${esc(DOC_LABEL[r.type]||r.type)}</div><div class="log-dates">${r.agent_nom?esc(r.agent_nom)+" · ":""}${d} · par ${esc(r.auteur||"—")}</div></div>
-      <div style="display:flex;gap:6px;">
+      <div>
+        <div class="log-agent">${esc(r.reference)} — ${esc(DOC_LABEL[r.type]||r.type)}</div>
+        <div class="log-dates">${r.agent_nom?esc(r.agent_nom)+" · ":""}${d} · par ${esc(r.auteur||"—")}</div>
+        ${isIncident?`<span class="absence-statut" style="background:${sc}22;color:${sc};border:1px solid ${sc}55;margin-top:5px;display:inline-block;">${esc(statut)}</span>`:""}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${isIncident?`<button class="btn btn-primary btn-sm" onclick="openIncidentDetail('${r.id}')">🔍 Détail / Suivi</button>`:""}
         <button class="btn btn-ghost btn-sm" onclick="reprintDoc('${r.id}')">👁 Revoir</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDocument('${r.id}','${scope}')">🗑</button>
       </div>
@@ -1548,6 +1569,88 @@ async function deleteDocument(id, scope) {
     toast("✓ Document supprimé");
     loadDocHistory(scope);
   } catch(e) { toast("Erreur lors de la suppression : "+e.message,"#E74C3C"); }
+}
+
+async function openIncidentDetail(id) {
+  try {
+    const rows = await sb(`documents?id=eq.${id}&select=*`);
+    if(!rows || !rows.length) return;
+    renderIncidentDetail(rows[0]);
+    document.getElementById("incident-detail-modal")?.classList.add("show");
+  } catch(e) { toast("Erreur lors du chargement du rapport","#E74C3C"); }
+}
+function closeIncidentDetail() {
+  document.getElementById("incident-detail-modal")?.classList.remove("show");
+}
+function renderIncidentDetail(r) {
+  const canManage = (role==="responsable"||role==="pdg");
+  const statut = r.statut||"À traiter";
+  const d = r.data||{};
+  const dateFr = d.dateDoc ? new Date(d.dateDoc+"T12:00:00").toLocaleDateString("fr-FR") : "—";
+
+  const statutRow = canManage
+    ? INCIDENT_STATUTS.map(s=>`<button class="btn btn-sm ${s===statut?"btn-primary":"btn-ghost"}" onclick="changeIncidentStatut('${r.id}','${s}','${esc(r.reference)}')">${s}</button>`).join("")
+    : (()=>{ const c=INCIDENT_STATUT_COLOR[statut]||"#fff"; return `<span class="absence-statut" style="background:${c}22;color:${c};border:1px solid ${c}55;">${esc(statut)}</span>`; })();
+
+  const suivi = (r.suivi||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const suiviHTML = suivi.length ? suivi.map(s=>`
+    <div style="background:rgba(13,21,32,0.5);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:3px;">${new Date(s.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})} · ${esc(s.auteur||"—")}</div>
+      <div style="font-size:12px;color:var(--text);white-space:pre-wrap;">${esc(s.texte)}</div>
+    </div>`).join("") : '<div style="font-size:12px;color:var(--text3);font-style:italic;">Aucune note de suivi pour le moment.</div>';
+
+  const addSuiviHTML = canManage ? `
+    <div class="field" style="margin-top:10px;">
+      <label>Ajouter une note de suivi</label>
+      <textarea id="incident-suivi-texte" rows="3" placeholder="Point d'étape, référence de document lié, action menée…"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="addIncidentSuivi('${r.id}')">➕ Ajouter au suivi</button>` : "";
+
+  const content = document.getElementById("incident-detail-content");
+  if(!content) return;
+  content.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:13px;color:var(--text2);">${esc(r.reference)} · ${dateFr}${d.heure?" à "+esc(d.heure):""}</div>
+      <div style="font-size:13px;color:var(--text);margin-top:2px;">📍 ${esc(d.lieu||"—")}</div>
+      ${d.agents?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">Agent(s) impliqué(s) : ${esc(d.agents)}</div>`:""}
+      ${d.personnes?`<div style="font-size:12px;color:var(--text2);">Personne(s) impliquée(s) : ${esc(d.personnes)}</div>`:""}
+      <div class="doc-section-title" style="border-color:rgba(41,128,185,0.15);color:#7EAAC8;">Description des faits</div>
+      <div style="font-size:12px;color:var(--text);white-space:pre-wrap;">${esc(d.desc||"(non renseigné)")}</div>
+      ${d.mesures?`<div class="doc-section-title" style="border-color:rgba(41,128,185,0.15);color:#7EAAC8;">Mesures prises</div><div style="font-size:12px;color:var(--text);white-space:pre-wrap;">${esc(d.mesures)}</div>`:""}
+    </div>
+    <div style="margin-bottom:6px;font-size:11px;font-weight:700;color:#A8CFEA;text-transform:uppercase;letter-spacing:0.06em;">Statut de l'enquête</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">${statutRow}</div>
+    <div style="margin-bottom:6px;font-size:11px;font-weight:700;color:#A8CFEA;text-transform:uppercase;letter-spacing:0.06em;">Suivi de l'enquête</div>
+    ${suiviHTML}
+    ${addSuiviHTML}
+  `;
+}
+
+async function changeIncidentStatut(id, statut, ref) {
+  try {
+    await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut})});
+    logActivity("incident_statut", `Le rapport d'incident ${ref||id} est passé en ${statut.toLowerCase()}`);
+    toast("✓ Statut mis à jour");
+    const rows = await sb(`documents?id=eq.${id}&select=*`);
+    if(rows && rows[0]) renderIncidentDetail(rows[0]);
+    loadDocHistory("incident");
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+async function addIncidentSuivi(id) {
+  const inp = document.getElementById("incident-suivi-texte");
+  const texte = inp.value.trim();
+  if(!texte) { toast("Merci d'écrire une note.","#E74C3C"); return; }
+  try {
+    const rows = await sb(`documents?id=eq.${id}&select=suivi`);
+    const current = (rows && rows[0] && rows[0].suivi) || [];
+    const updated = [...current, {date:new Date().toISOString(), auteur:identityLabel(), texte}];
+    await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({suivi:updated})});
+    logActivity("incident_suivi", "Note de suivi ajoutée sur un rapport d'incident");
+    toast("✓ Note ajoutée");
+    const rows2 = await sb(`documents?id=eq.${id}&select=*`);
+    if(rows2 && rows2[0]) renderIncidentDetail(rows2[0]);
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
 async function reprintDoc(id) {
   try {
@@ -1769,10 +1872,13 @@ function getNotifications() {
     }
   });
   incidentDocs.forEach(r=>{
+    const cur = r.statut||"À traiter";
     const seen = (r.vus_par||{})[vk];
     if(seen===undefined) {
       const lieu = (r.data && r.data.lieu) ? " — "+r.data.lieu : "";
       list.push({type:"inc", id:r.id, icon:"🚨", text:`Nouveau rapport d'incident (${r.reference}) par ${r.auteur||"un agent"}${lieu}`, time:r.created_at});
+    } else if(seen!==cur) {
+      list.push({type:"inc", id:r.id, icon:"🚨", text:`Le rapport d'incident ${r.reference} est passé en ${cur.toLowerCase()}`, time:r.created_at});
     }
   });
   list.sort((x,y)=> new Date(y.time||0) - new Date(x.time||0));
@@ -1845,7 +1951,7 @@ async function markOneSeen(type, id) {
     const r = incidentDocs.find(x=>String(x.id)===String(id));
     if(!r) return;
     const vus = Object.assign({}, r.vus_par||{});
-    vus[vk] = true;
+    vus[vk] = r.statut||"À traiter";
     try { await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); r.vus_par = vus; }
     catch(e) { console.warn("markOneSeen inc error:", e.message); }
   }
@@ -1975,7 +2081,7 @@ async function loadAll() {
       tryLoad("candidatures?select=*&order=created_at.desc"),
       tryLoad("agents_liste?select=nom&order=nom"),
       tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1"),
-      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,created_at&type=eq.incident&order=created_at.desc&limit=100"),
+      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,created_at&type=eq.incident&order=created_at.desc&limit=100"),
     ]);
     patrols      = p;
     absences     = a;
