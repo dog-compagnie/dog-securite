@@ -1584,7 +1584,7 @@ function closeIncidentDetail() {
   document.getElementById("incident-detail-modal")?.classList.remove("show");
 }
 function renderIncidentDetail(r) {
-  const canManage = (role==="responsable"||role==="pdg");
+  const canManage = (role==="responsable"||role==="pdg"||role==="admin");
   const statut = r.statut||"À traiter";
   const d = r.data||{};
   const dateFr = d.dateDoc ? new Date(d.dateDoc+"T12:00:00").toLocaleDateString("fr-FR") : "—";
@@ -1633,7 +1633,7 @@ function renderIncidentDetail(r) {
 
 async function changeIncidentStatut(id, statut, ref) {
   try {
-    await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut})});
+    await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut, statut_changed_at:new Date().toISOString()})});
     logActivity("incident_statut", `Le rapport d'incident ${ref||id} est passé en ${statut.toLowerCase()}`);
     toast("✓ Statut mis à jour");
     const rows = await sb(`documents?id=eq.${id}&select=*`);
@@ -1785,7 +1785,7 @@ const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
   {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg"],         section:"Opérations"},
-  {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg"],         section:"Opérations", badgeId:"nav-badge-inc"},
+  {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg","admin"],         section:"Opérations", badgeId:"nav-badge-inc"},
   {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-abs"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
@@ -1904,7 +1904,13 @@ function getNotifications() {
     const changes = [];
     if(seenStatut!==curStatut) changes.push(`est passé en ${curStatut.toLowerCase()}`);
     if(curCount>seenCount) changes.push(curCount-seenCount>1 ? "a reçu de nouvelles notes de suivi" : "a reçu une nouvelle note de suivi");
-    if(changes.length) list.push({type:"inc", id:r.id, icon:"🚨", text:`Le rapport d'incident ${r.reference} ${changes.join(" et ")}`, time:r.created_at});
+    if(changes.length) {
+      const times = [new Date(r.created_at).getTime()];
+      if(r.statut_changed_at) times.push(new Date(r.statut_changed_at).getTime());
+      (r.suivi||[]).forEach(s=>{ if(s.date) times.push(new Date(s.date).getTime()); });
+      const notifTime = new Date(Math.max(...times)).toISOString();
+      list.push({type:"inc", id:r.id, icon:"🚨", text:`Le rapport d'incident ${r.reference} ${changes.join(" et ")}`, time:notifTime});
+    }
   });
   evalsForNotif.forEach(ev=>{
     const seen = (ev.vus_par||{})[vk];
@@ -2122,7 +2128,7 @@ async function loadAll() {
       tryLoad("candidatures?select=*&order=created_at.desc"),
       tryLoad("agents_liste?select=nom&order=nom"),
       tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1"),
-      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,suivi,created_at&type=eq.incident&order=created_at.desc&limit=100"),
+      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,statut_changed_at,suivi,created_at&type=eq.incident&order=created_at.desc&limit=100"),
       tryLoad("evaluations?select=id,agent_nom,verdict,pourcentage,vus_par,created_at&order=created_at.desc&limit=100"),
     ]);
     patrols      = p;
