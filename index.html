@@ -955,6 +955,7 @@ const JOURNAL_TYPES = {
   document_supprime:     {color:"#F08080", label:"Document"},
   incident_statut:       {color:"#F0A840", label:"Document"},
   incident_suivi:        {color:"#5DADE2", label:"Document"},
+  incident_suivi_suppr:  {color:"#F08080", label:"Document"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
 function currentActeurLabel() {
@@ -1592,11 +1593,15 @@ function renderIncidentDetail(r) {
     ? INCIDENT_STATUTS.map(s=>`<button class="btn btn-sm ${s===statut?"btn-primary":"btn-ghost"}" onclick="changeIncidentStatut('${r.id}','${s}','${esc(r.reference)}')">${s}</button>`).join("")
     : (()=>{ const c=INCIDENT_STATUT_COLOR[statut]||"#fff"; return `<span class="absence-statut" style="background:${c}22;color:${c};border:1px solid ${c}55;">${esc(statut)}</span>`; })();
 
-  const suivi = (r.suivi||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const suivi = (r.suivi||[]).map((s,idx)=>({...s, _idx:idx})).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const canDeleteSuivi = role==="admin";
   const suiviHTML = suivi.length ? suivi.map(s=>`
-    <div style="background:rgba(13,21,32,0.5);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:8px;">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:3px;">${new Date(s.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})} · ${esc(s.auteur||"—")}</div>
-      <div style="font-size:12px;color:var(--text);white-space:pre-wrap;">${esc(s.texte)}</div>
+    <div style="background:rgba(13,21,32,0.5);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:3px;">${new Date(s.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})} · ${esc(s.auteur||"—")}</div>
+        <div style="font-size:12px;color:var(--text);white-space:pre-wrap;">${esc(s.texte)}</div>
+      </div>
+      ${canDeleteSuivi ? `<button class="btn btn-danger btn-sm" onclick="deleteIncidentSuivi('${r.id}',${s._idx})" style="flex-shrink:0;">🗑</button>` : ""}
     </div>`).join("") : '<div style="font-size:12px;color:var(--text3);font-style:italic;">Aucune note de suivi pour le moment.</div>';
 
   const addSuiviHTML = canManage ? `
@@ -1648,6 +1653,19 @@ async function addIncidentSuivi(id) {
     await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({suivi:updated})});
     logActivity("incident_suivi", "Note de suivi ajoutée sur un rapport d'incident");
     toast("✓ Note ajoutée");
+    const rows2 = await sb(`documents?id=eq.${id}&select=*`);
+    if(rows2 && rows2[0]) renderIncidentDetail(rows2[0]);
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function deleteIncidentSuivi(id, idx) {
+  if(!confirm("Supprimer définitivement cette note de suivi ?")) return;
+  try {
+    const rows = await sb(`documents?id=eq.${id}&select=suivi`);
+    const current = (rows && rows[0] && rows[0].suivi) || [];
+    const updated = current.filter((_,i)=>i!==idx);
+    await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({suivi:updated})});
+    logActivity("incident_suivi_suppr", "Note de suivi supprimée sur un rapport d'incident");
+    toast("✓ Note supprimée");
     const rows2 = await sb(`documents?id=eq.${id}&select=*`);
     if(rows2 && rows2[0]) renderIncidentDetail(rows2[0]);
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
@@ -1771,7 +1789,7 @@ const NAV_CONFIG = [
   {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-abs"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
-  {page:"evaluations",      icon:"🎯", label:"Évaluations agents",    roles:["responsable","pdg"],                 section:"Gestion"},
+  {page:"evaluations",      icon:"🎯", label:"Évaluations agents",    roles:["responsable","pdg"],                 section:"Gestion", badgeId:"nav-badge-eval"},
   {page:"doc-rh",           icon:"🗂️", label:"Documents RH",          roles:["responsable","pdg"],                 section:"Gestion"},
   {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
   {page:"journal",          icon:"🗒️", label:"Journal d'activité",    roles:["admin"],                             section:"Administration"},
@@ -1846,6 +1864,7 @@ function viewerKey() {
 }
 
 let incidentDocs = [];
+let evalsForNotif = [];
 
 function getNotifications() {
   const canSee = (role==="responsable"||role==="pdg"||role==="admin");
@@ -1872,13 +1891,25 @@ function getNotifications() {
     }
   });
   incidentDocs.forEach(r=>{
-    const cur = r.statut||"À traiter";
+    const curStatut = r.statut||"À traiter";
+    const curCount = (r.suivi||[]).length;
     const seen = (r.vus_par||{})[vk];
     if(seen===undefined) {
       const lieu = (r.data && r.data.lieu) ? " — "+r.data.lieu : "";
       list.push({type:"inc", id:r.id, icon:"🚨", text:`Nouveau rapport d'incident (${r.reference}) par ${r.auteur||"un agent"}${lieu}`, time:r.created_at});
-    } else if(seen!==cur) {
-      list.push({type:"inc", id:r.id, icon:"🚨", text:`Le rapport d'incident ${r.reference} est passé en ${cur.toLowerCase()}`, time:r.created_at});
+      return;
+    }
+    const seenStatut = (seen && typeof seen==="object") ? seen.statut : seen;
+    const seenCount  = (seen && typeof seen==="object") ? (seen.suiviCount||0) : 0;
+    const changes = [];
+    if(seenStatut!==curStatut) changes.push(`est passé en ${curStatut.toLowerCase()}`);
+    if(curCount>seenCount) changes.push(curCount-seenCount>1 ? "a reçu de nouvelles notes de suivi" : "a reçu une nouvelle note de suivi");
+    if(changes.length) list.push({type:"inc", id:r.id, icon:"🚨", text:`Le rapport d'incident ${r.reference} ${changes.join(" et ")}`, time:r.created_at});
+  });
+  evalsForNotif.forEach(ev=>{
+    const seen = (ev.vus_par||{})[vk];
+    if(seen===undefined) {
+      list.push({type:"eval", id:ev.id, icon:"🎯", text:`Nouvelle évaluation de ${ev.agent_nom} — ${ev.verdict} (${ev.pourcentage}%)`, time:ev.created_at});
     }
   });
   list.sort((x,y)=> new Date(y.time||0) - new Date(x.time||0));
@@ -1890,7 +1921,8 @@ function computeNotifCounts() {
   const cand = notifs.filter(n=>n.type==="cand").length;
   const abs  = notifs.filter(n=>n.type==="abs").length;
   const inc  = notifs.filter(n=>n.type==="inc").length;
-  return {cand, abs, inc, total:notifs.length};
+  const evl  = notifs.filter(n=>n.type==="eval").length;
+  return {cand, abs, inc, evl, total:notifs.length};
 }
 
 function fmtNotifTime(ts) {
@@ -1951,9 +1983,16 @@ async function markOneSeen(type, id) {
     const r = incidentDocs.find(x=>String(x.id)===String(id));
     if(!r) return;
     const vus = Object.assign({}, r.vus_par||{});
-    vus[vk] = r.statut||"À traiter";
+    vus[vk] = { statut: r.statut||"À traiter", suiviCount: (r.suivi||[]).length };
     try { await sb(`documents?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); r.vus_par = vus; }
     catch(e) { console.warn("markOneSeen inc error:", e.message); }
+  } else if(type==="eval") {
+    const ev = evalsForNotif.find(x=>String(x.id)===String(id));
+    if(!ev) return;
+    const vus = Object.assign({}, ev.vus_par||{});
+    vus[vk] = true;
+    try { await sb(`evaluations?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); ev.vus_par = vus; }
+    catch(e) { console.warn("markOneSeen eval error:", e.message); }
   }
 }
 
@@ -1961,7 +2000,7 @@ async function handleNotifClick(type, id) {
   closeNotifPanel();
   await markOneSeen(type, id);
   updateNotifBadges();
-  const pages = {cand:"candidatures", abs:"absences-gestion", inc:"incident"};
+  const pages = {cand:"candidatures", abs:"absences-gestion", inc:"incident", eval:"evaluations"};
   goPage(pages[type]||"candidatures");
 }
 
@@ -1973,7 +2012,7 @@ async function markAllNotifsSeen() {
 }
 
 function updateNotifBadges() {
-  const {cand, abs, inc, total} = computeNotifCounts();
+  const {cand, abs, inc, evl, total} = computeNotifCounts();
   const dot = document.getElementById("notif-dot");
   const bell = document.getElementById("notif-bell");
   if(dot)  { dot.textContent = total; dot.style.display = total>0 ? "flex" : "none"; }
@@ -1984,6 +2023,8 @@ function updateNotifBadges() {
   if(navAbs)  { navAbs.textContent = abs; navAbs.style.display = abs>0 ? "inline-flex" : "none"; }
   const navInc = document.getElementById("nav-badge-inc");
   if(navInc)  { navInc.textContent = inc; navInc.style.display = inc>0 ? "inline-flex" : "none"; }
+  const navEval = document.getElementById("nav-badge-eval");
+  if(navEval) { navEval.textContent = evl; navEval.style.display = evl>0 ? "inline-flex" : "none"; }
   const panel = document.getElementById("notif-panel");
   if(panel && panel.classList.contains("show")) renderNotifPanel();
 }
@@ -2075,19 +2116,21 @@ async function loadAll() {
       try { const r = await sb(path); return r||[]; }
       catch(e) { console.warn("Load failed:", path, e.message); return []; }
     };
-    const [p,a,c,ag,al,inc] = await Promise.all([
+    const [p,a,c,ag,al,inc,ev] = await Promise.all([
       tryLoad("patrouilles_live?select=*&order=patrol_id"),
       tryLoad("absences?select=*&order=created_at.desc"),
       tryLoad("candidatures?select=*&order=created_at.desc"),
       tryLoad("agents_liste?select=nom&order=nom"),
       tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1"),
-      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,created_at&type=eq.incident&order=created_at.desc&limit=100"),
+      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,suivi,created_at&type=eq.incident&order=created_at.desc&limit=100"),
+      tryLoad("evaluations?select=id,agent_nom,verdict,pourcentage,vus_par,created_at&order=created_at.desc&limit=100"),
     ]);
     patrols      = p;
     absences     = a;
     candidatures = c;
     agents       = ag.map(x=>x.nom).sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
     incidentDocs = inc;
+    evalsForNotif = ev;
     syncBadge("✓ En ligne","#4A7F5E");
     updateNotifBadges();
     checkAlerte(al && al[0] ? al[0] : null);
@@ -3030,4 +3073,3 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
-
