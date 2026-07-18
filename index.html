@@ -1017,6 +1017,7 @@ const JOURNAL_TYPES = {
   compte_supprime:      {color:"#F08080", label:"Compte"},
   hierarchie_role:      {color:"#9B59B6", label:"Compte"},
   hierarchie_general:   {color:"#F0A840", label:"Compte"},
+  hierarchie_adjoint:   {color:"#48C9B0", label:"Compte"},
   service_log_suppr:    {color:"#F08080", label:"Service"},
   service_force_fin:    {color:"#F0A840", label:"Service"},
   service_modif:        {color:"#5DADE2", label:"Service"},
@@ -2296,7 +2297,9 @@ async function launchApp() {
   if(topbarRole) {
     const who = currentCompte ? " — "+currentCompte.prenom+" "+currentCompte.nom : "";
     const isGeneral = role==="responsable" && currentCompte && currentCompte.general;
-    topbarRole.textContent = (isGeneral ? "Responsable Général" : (ROLE_LABELS[role]||role)) + who;
+    const isAdjoint = role==="pdg" && currentCompte && currentCompte.adjoint;
+    const specialLabel = isGeneral ? "Responsable Général" : isAdjoint ? "PDG Adjoint" : (ROLE_LABELS[role]||role);
+    topbarRole.textContent = specialLabel + who;
     topbarRole.style.background = ROLE_COLORS[role]||"rgba(255,255,255,0.08)";
     topbarRole.style.color = ROLE_TEXT[role]||"#fff";
   }
@@ -3297,6 +3300,7 @@ async function loadHierarchie() {
 }
 const HIER_TIER_META = {
   pdg:         {icon:"👔", label:"PDG",                 gradient:"linear-gradient(135deg,#1E8449,#176139)", accent:"#52D98B"},
+  pdg_adjoint: {icon:"🏅", label:"PDG Adjoint",          gradient:"linear-gradient(135deg,#16A085,#117A65)", accent:"#48C9B0"},
   general:     {icon:"⭐", label:"Responsable Général",  gradient:"linear-gradient(135deg,#D4900A,#A6720A)", accent:"#F0A840"},
   responsable: {icon:"🎖", label:"Responsables",          gradient:"linear-gradient(135deg,#7D3C98,#5B2C74)", accent:"#C8A0E8"},
   agent:       {icon:"👮", label:"Agents de sécurité",    gradient:"linear-gradient(135deg,#2980B9,#1A5276)", accent:"#5DADE2"},
@@ -3315,22 +3319,24 @@ function renderHierarchie(comptes) {
       <option value="pdg" ${c.role==="pdg"?"selected":""}>PDG</option>
     </select>`;
 
-  // Groupe visuel : les Responsables Généraux forment leur propre palier, au-dessus des Responsables classiques
+  // Groupes visuels : PDG Adjoint et Responsable Général forment chacun leur propre palier
   const groups = {
-    pdg:         visibles.filter(c=>c.role==="pdg"),
+    pdg:         visibles.filter(c=>c.role==="pdg" && !c.adjoint),
+    pdg_adjoint: visibles.filter(c=>c.role==="pdg" && c.adjoint),
     general:     visibles.filter(c=>c.role==="responsable" && c.general),
     responsable: visibles.filter(c=>c.role==="responsable" && !c.general),
     agent:       visibles.filter(c=>c.role==="agent"),
   };
+  const byName = (a,b)=>`${a.prenom||""} ${a.nom||""}`.trim().localeCompare(`${b.prenom||""} ${b.nom||""}`.trim(),"fr",{sensitivity:"base"});
 
   let lastRendered = false;
-  el.innerHTML = ["pdg","general","responsable","agent"].map(tierKey=>{
-    const membres = groups[tierKey].sort((a,b)=>(a.nom||"").localeCompare(b.nom||"","fr",{sensitivity:"base"}));
+  el.innerHTML = ["pdg","pdg_adjoint","general","responsable","agent"].map(tierKey=>{
+    const membres = groups[tierKey].sort(byName);
     if(!membres.length) return "";
     const meta = HIER_TIER_META[tierKey];
     const connector = lastRendered ? `<div class="hier-connector"></div>` : "";
     lastRendered = true;
-    const isPdgTier = tierKey==="pdg";
+    const isPdgTier = (tierKey==="pdg" || tierKey==="pdg_adjoint");
     const cards = membres.map(c=>{
       const initials = `${(c.prenom||"?")[0]||""}${(c.nom||"?")[0]||""}`.toUpperCase();
       const nomComplet = esc((c.prenom||"")+" "+(c.nom||""));
@@ -3339,11 +3345,17 @@ function renderHierarchie(comptes) {
           <input type="checkbox" ${c.general?"checked":""} onchange="toggleResponsableGeneral('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;accent-color:#F0A840;">
           ⭐ Responsable Général
         </label>` : "";
+      const adjointToggle = (c.role==="pdg" && canManage) ? `
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:var(--text2);margin-top:10px;cursor:pointer;">
+          <input type="checkbox" ${c.adjoint?"checked":""} onchange="togglePdgAdjoint('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;accent-color:#48C9B0;">
+          🏅 PDG Adjoint
+        </label>` : "";
       return `<div class="hier-card${isPdgTier?" tier-pdg":""}" style="--tier-accent:${meta.accent}">
         <div class="hier-avatar${isPdgTier?" tier-pdg-av":""}" style="background:${meta.gradient}">${esc(initials)}</div>
         <div class="hier-name">${esc(c.prenom)} ${esc(c.nom)}</div>
         ${canManage ? roleSelect(c) : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(HIER_LABELS[c.role]||c.role)}</span>`}
         ${generalToggle}
+        ${adjointToggle}
       </div>`;
     }).join("");
     return `${connector}<div class="hier-section">
@@ -3360,6 +3372,7 @@ async function changerRoleHierarchie(id, newRole, nomComplet) {
   try {
     const payload = {role:newRole};
     if(newRole!=="responsable") payload.general = false;
+    if(newRole!=="pdg") payload.adjoint = false;
     await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(payload)});
     logActivity("hierarchie_role", `${nomComplet.trim()} est passé au rôle : ${HIER_LABELS[newRole]||newRole}`);
     toast("✓ Rôle mis à jour pour "+nomComplet.trim());
@@ -3371,6 +3384,14 @@ async function toggleResponsableGeneral(id, checked, nomComplet) {
     await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({general:checked})});
     logActivity("hierarchie_general", `${nomComplet.trim()} ${checked?"devient Responsable Général":"n'est plus Responsable Général"}`);
     toast(checked ? "⭐ "+nomComplet.trim()+" est désormais Responsable Général" : "✓ Statut retiré pour "+nomComplet.trim());
+    loadHierarchie();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function togglePdgAdjoint(id, checked, nomComplet) {
+  try {
+    await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({adjoint:checked})});
+    logActivity("hierarchie_adjoint", `${nomComplet.trim()} ${checked?"devient PDG Adjoint":"n'est plus PDG Adjoint"}`);
+    toast(checked ? "🏅 "+nomComplet.trim()+" est désormais PDG Adjoint" : "✓ Statut retiré pour "+nomComplet.trim());
     loadHierarchie();
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
