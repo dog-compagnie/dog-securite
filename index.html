@@ -90,11 +90,18 @@ input,select,textarea{font-family:inherit;}
 /* ═══ MAIN ═══ */
 .main{margin-left:210px;padding-top:58px;min-height:100vh;position:relative;z-index:1;}
 .page{display:none;padding:28px;position:relative;}
-.page-maint-overlay{display:none;position:absolute;inset:0;background:rgba(10,14,20,0.97);z-index:50;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;}
+.page-maint-overlay{display:none;position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(20,26,36,0.98) 0%, rgba(8,11,16,0.99) 100%);z-index:50;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;backdrop-filter:blur(3px);}
 .page-maint-overlay.show{display:flex;}
-.page-maint-overlay .icon{font-size:44px;margin-bottom:14px;}
-.page-maint-overlay .title{font-size:18px;font-weight:800;color:#fff;margin-bottom:8px;}
-.page-maint-overlay .msg{font-size:13px;color:var(--text2);max-width:400px;}
+.page-maint-card{background:var(--bg2);border:1px solid rgba(240,168,64,0.28);border-radius:18px;padding:0 0 30px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);overflow:hidden;}
+.maint-stripe{height:9px;background:repeating-linear-gradient(45deg,#F0A840 0 12px,#161d27 12px 24px);}
+.page-maint-icon-wrap{width:72px;height:72px;border-radius:50%;background:rgba(240,168,64,0.12);border:2px solid rgba(240,168,64,0.35);display:flex;align-items:center;justify-content:center;margin:26px auto 16px;animation:maint-pulse 2.4s ease-in-out infinite;}
+.page-maint-icon-wrap .icon{font-size:32px;}
+@keyframes maint-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(240,168,64,0.32);}
+  50%{box-shadow:0 0 0 14px rgba(240,168,64,0);}
+}
+.page-maint-title{font-size:17px;font-weight:800;color:#fff;margin-bottom:8px;padding:0 24px;}
+.page-maint-msg{font-size:13px;color:var(--text2);line-height:1.6;padding:0 28px;}
 .page.active{display:block;}
 .page-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;}
 .page-title span{color:var(--blue-light);}
@@ -344,11 +351,12 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 
 <!-- ═══ ÉCRAN DE MAINTENANCE (non fermable, tout le monde sauf Admin) ═══ -->
 <div id="maintenance-screen" class="alert-popup" style="z-index:900;">
-  <div class="alert-popup-box">
-    <div class="alert-popup-icon">🚧</div>
-    <div class="alert-popup-title">Maintenance en cours</div>
-    <div class="alert-popup-message" id="maintenance-message">Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants.</div>
-    <div style="font-size:11px;color:var(--text2);">Cette page se réactivera automatiquement dès la fin de la maintenance.</div>
+  <div class="page-maint-card" style="max-width:420px;">
+    <div class="maint-stripe"></div>
+    <div class="page-maint-icon-wrap"><span class="icon">🚧</span></div>
+    <div class="page-maint-title" style="font-size:19px;">Maintenance en cours</div>
+    <div class="page-maint-msg" id="maintenance-message">Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants.</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:16px;padding:0 24px;">Cette page se réactivera automatiquement dès la fin de la maintenance.</div>
   </div>
 </div>
 
@@ -2112,7 +2120,13 @@ function setupPageMaintOverlays() {
     if(p.querySelector(".page-maint-overlay")) return;
     const ov = document.createElement("div");
     ov.className = "page-maint-overlay";
-    ov.innerHTML = `<div class="icon">🚧</div><div class="title">Page en maintenance</div><div class="msg"></div>`;
+    ov.innerHTML = `
+      <div class="page-maint-card">
+        <div class="maint-stripe"></div>
+        <div class="page-maint-icon-wrap"><span class="icon">🚧</span></div>
+        <div class="page-maint-title">Page en maintenance</div>
+        <div class="page-maint-msg"></div>
+      </div>`;
     p.appendChild(ov);
   });
 }
@@ -2123,7 +2137,7 @@ function applyMaintenanceOverlays() {
     const pid = p.id.replace("page-","");
     const affected = role!=="admin" && (maintenancePages.includes("ALL") || maintenancePages.includes(pid));
     if(affected) {
-      ov.querySelector(".msg").textContent = maintenanceMessage || "Cette section est temporairement indisponible pour une mise à jour.";
+      ov.querySelector(".page-maint-msg").textContent = maintenanceMessage || "Cette section est temporairement indisponible pour une mise à jour.";
       ov.classList.add("show");
     } else {
       ov.classList.remove("show");
@@ -3276,3 +3290,4 @@ setupPageMaintOverlays();
 </script>
 </body>
 </html>
+
