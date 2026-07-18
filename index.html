@@ -337,6 +337,16 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 <body>
 <div class="bg"></div>
 
+<!-- ═══ ÉCRAN DE MAINTENANCE (non fermable, tout le monde sauf Admin) ═══ -->
+<div id="maintenance-screen" class="alert-popup" style="z-index:900;">
+  <div class="alert-popup-box">
+    <div class="alert-popup-icon">🚧</div>
+    <div class="alert-popup-title">Maintenance en cours</div>
+    <div class="alert-popup-message" id="maintenance-message">Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants.</div>
+    <div style="font-size:11px;color:var(--text2);">Cette page se réactivera automatiquement dès la fin de la maintenance.</div>
+  </div>
+</div>
+
 <!-- ═══ POPUP ALERTE ADMIN ═══ -->
 <div id="alert-popup" class="alert-popup">
   <div class="alert-popup-box">
@@ -634,6 +644,24 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <div class="page" id="page-journal">
     <div class="page-title">Journal <span>d'activité</span></div>
     <div class="page-sub">Historique complet des actions : candidatures, absences, patrouilles, comptes.</div>
+
+    <div class="card" style="max-width:620px;">
+      <div class="card-hdr">
+        <div class="card-hdr-title">🚧 Mode maintenance</div>
+        <span id="maint-status-badge" style="font-size:11px;color:var(--text2);"></span>
+      </div>
+      <div class="card-body">
+        <div class="page-sub" style="margin-bottom:14px;">Bloque l'accès à tout le monde sauf Admin — utile pour tester ou mettre à jour le site sans interférence.</div>
+        <div class="field">
+          <label>Message affiché (optionnel)</label>
+          <textarea id="maint-msg" rows="2" placeholder="Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-danger" onclick="activerMaintenance()">🚧 Activer la maintenance</button>
+          <button class="btn btn-success" onclick="desactiverMaintenance()">✓ Désactiver la maintenance</button>
+        </div>
+      </div>
+    </div>
 
     <div class="card" style="max-width:620px;">
       <div class="card-hdr"><div class="card-hdr-title">📢 Diffuser une alerte</div></div>
@@ -949,6 +977,8 @@ const JOURNAL_TYPES = {
   service_debut_valide: {color:"#52D98B", label:"Service"},
   service_debut_refuse: {color:"#F08080", label:"Service"},
   alerte_envoyee:        {color:"#D35400", label:"Alerte"},
+  maintenance_on:        {color:"#C0392B", label:"Alerte"},
+  maintenance_off:       {color:"#52D98B", label:"Alerte"},
   evaluation_creee:      {color:"#9B59B6", label:"Évaluation"},
   evaluation_supprimee:  {color:"#F08080", label:"Évaluation"},
   document_cree:         {color:"#1F4E7B", label:"Document"},
@@ -1838,7 +1868,7 @@ function goPage(pageId) {
   if(pageId==="absences-gestion")  renderAbsences();
   if(pageId==="logs-service")      loadLogs();
   if(pageId==="admin-comptes")     loadComptes();
-  if(pageId==="journal")           loadJournal();
+  if(pageId==="journal")           { loadJournal(); refreshMaintStatusBadge(); }
   if(pageId==="evaluations")       loadEvaluations();
   if(pageId==="doc-rh")            { setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh"); }
   if(pageId==="incident")          { prefillDocDates(); loadDocHistory("incident"); }
@@ -2035,7 +2065,87 @@ function updateNotifBadges() {
   if(panel && panel.classList.contains("show")) renderNotifPanel();
 }
 
-function launchApp() {
+// ─── MODE MAINTENANCE (Admin) ────────────────────────────────────────
+let _maintenancePoll = null;
+async function fetchMaintenanceStatus() {
+  try {
+    const rows = await sb("maintenance_mode?select=*&order=updated_at.desc&limit=1");
+    return (rows && rows[0]) || {actif:false};
+  } catch(e) { return {actif:false}; }
+}
+function showMaintenanceScreen(message) {
+  const msgEl = document.getElementById("maintenance-message");
+  if(msgEl && message) msgEl.textContent = message;
+  document.getElementById("maintenance-screen")?.classList.add("show");
+}
+function hideMaintenanceScreen() {
+  document.getElementById("maintenance-screen")?.classList.remove("show");
+}
+async function checkMaintenanceGate() {
+  if(role==="admin") { hideMaintenanceScreen(); return false; }
+  const status = await fetchMaintenanceStatus();
+  if(status.actif) {
+    showMaintenanceScreen(status.message || "Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants.");
+    if(!_maintenancePoll) {
+      _maintenancePoll = setInterval(async ()=>{
+        const s2 = await fetchMaintenanceStatus();
+        if(!s2.actif) {
+          clearInterval(_maintenancePoll); _maintenancePoll = null;
+          hideMaintenanceScreen();
+          finishLaunch();
+        }
+      }, 8000);
+    }
+    return true;
+  }
+  hideMaintenanceScreen();
+  return false;
+}
+async function activerMaintenance() {
+  const msg = document.getElementById("maint-msg").value.trim();
+  try {
+    const r = await fetch(SB_URL+"/rest/v1/maintenance_mode", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({actif:true, message: msg||null, updated_by: identityLabel()})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    logActivity("maintenance_on", "Mode maintenance activé"+(msg?` : "${msg}"`:""));
+    toast("🚧 Mode maintenance activé pour tout le monde sauf Admin");
+    refreshMaintStatusBadge();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function desactiverMaintenance() {
+  try {
+    const r = await fetch(SB_URL+"/rest/v1/maintenance_mode", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({actif:false, updated_by: identityLabel()})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    logActivity("maintenance_off", "Mode maintenance désactivé");
+    toast("✓ Mode maintenance désactivé");
+    refreshMaintStatusBadge();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function refreshMaintStatusBadge() {
+  const status = await fetchMaintenanceStatus();
+  const badge = document.getElementById("maint-status-badge");
+  if(badge) badge.textContent = status.actif ? "🔴 Maintenance actuellement ACTIVE" : "🟢 Site normal (pas de maintenance)";
+}
+
+function finishLaunch() {
+  document.getElementById("app").style.display="block";
+  renderSidenav();
+  const defaultPage = role==="candidat" ? "candidature-form" : "patrouilles";
+  goPage(defaultPage);
+
+  clearInterval(_refreshInterval); _refreshInterval=null;
+  if(role!=="candidat") {
+    loadAll();
+    _refreshInterval = setInterval(loadAll, 15000);
+  }
+}
+
+async function launchApp() {
   document.getElementById("screen-login").style.display="none";
   document.getElementById("app").style.display="block";
 
@@ -2050,15 +2160,12 @@ function launchApp() {
   const bell = document.getElementById("notif-bell");
   if(bell) bell.style.display = (role==="responsable"||role==="pdg"||role==="admin") ? "flex" : "none";
 
-  renderSidenav();
-  const defaultPage = role==="candidat" ? "candidature-form" : "patrouilles";
-  goPage(defaultPage);
-
-  clearInterval(_refreshInterval); _refreshInterval=null;
-  if(role!=="candidat") {
-    loadAll();
-    _refreshInterval = setInterval(loadAll, 15000);
+  if(role!=="admin" && role!=="candidat") {
+    const blocked = await checkMaintenanceGate();
+    if(blocked) { document.getElementById("app").style.display="none"; return; }
   }
+
+  finishLaunch();
 }
 
 function logout() {
@@ -2115,6 +2222,14 @@ async function confirmLogin() {
 
 
 async function loadAll() {
+  if(role!=="admin" && role!=="candidat") {
+    const blocked = await checkMaintenanceGate();
+    if(blocked) {
+      document.getElementById("app").style.display="none";
+      clearInterval(_refreshInterval); _refreshInterval=null;
+      return;
+    }
+  }
   syncBadge("⏳ Synchro…","#5D8AA8");
   try {
     // Load each table independently so one failure does not block others
@@ -3079,3 +3194,4 @@ async function supprimerCompte(id) {
 </script>
 </body>
 </html>
+
