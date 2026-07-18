@@ -285,6 +285,18 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .compte-role{font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;}
 .compte-pin{font-size:11px;color:var(--text3);font-family:monospace;letter-spacing:2px;}
 
+/* HIÉRARCHIE */
+.hier-section{margin-bottom:26px;}
+.hier-section:last-child{margin-bottom:0;}
+.hier-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;font-weight:800;color:#A8CFEA;}
+.hier-section-hdr .count{background:rgba(41,128,185,0.15);color:#5DADE2;font-size:10px;padding:2px 9px;border-radius:10px;font-weight:700;}
+.hier-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+.hier-card{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-radius:14px;padding:18px 12px 14px;text-align:center;transition:border-color 0.15s, transform 0.15s;}
+.hier-card:hover{border-color:rgba(41,128,185,0.4);transform:translateY(-2px);}
+.hier-avatar{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;margin:0 auto 10px;box-shadow:0 4px 14px rgba(0,0,0,0.35);}
+.hier-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:10px;}
+.hier-role-select{width:100%;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.25);border-radius:7px;color:#fff;font-size:11px;padding:6px 6px;text-align:center;}
+
 /* JOURNAL D'ACTIVITÉ */
 .journal-item{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-left:4px solid var(--text3);border-radius:8px;padding:11px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .journal-msg{font-size:12px;color:var(--text);line-height:1.4;}
@@ -657,7 +669,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <div class="page" id="page-hierarchie">
     <div class="page-title">Hiérarchie <span>du service</span></div>
     <div class="page-sub">Organisation actuelle de l'équipe de sécurité.</div>
-    <div class="card" style="max-width:700px;">
+    <div class="card" style="max-width:940px;">
       <div class="card-hdr">
         <div class="card-hdr-title">🪖 Organigramme</div>
         <button class="btn btn-ghost btn-sm" onclick="loadHierarchie()">🔄 Actualiser</button>
@@ -2147,12 +2159,23 @@ function setupPageMaintOverlays() {
     p.appendChild(ov);
   });
 }
+// Comptes de test exclus de la maintenance ET de l'organigramme
+const TEST_ACCOUNT_NAMES = ["Test Test1", "Test Test2", "Test Test3"];
+function isMaintenanceExempt() {
+  if(role==="admin") return true;
+  if(currentAgent) {
+    const fullName = `${currentAgent.prenom||""} ${currentAgent.nom||""}`.trim();
+    if(TEST_ACCOUNT_NAMES.includes(fullName)) return true;
+  }
+  return false;
+}
+
 function applyMaintenanceOverlays() {
   document.querySelectorAll(".page").forEach(p=>{
     const ov = p.querySelector(".page-maint-overlay");
     if(!ov) return;
     const pid = p.id.replace("page-","");
-    const affected = role!=="admin" && (maintenancePages.includes("ALL") || maintenancePages.includes(pid));
+    const affected = !isMaintenanceExempt() && (maintenancePages.includes("ALL") || maintenancePages.includes(pid));
     if(affected) {
       ov.querySelector(".page-maint-msg").textContent = maintenanceMessage || "Cette section est temporairement indisponible pour une mise à jour.";
       ov.classList.add("show");
@@ -2164,7 +2187,7 @@ function applyMaintenanceOverlays() {
 
 // Renvoie true si la maintenance concerne TOUT le site (blocage complet, non fermable)
 async function checkMaintenanceGate() {
-  if(role==="admin") { hideMaintenanceScreen(); return false; }
+  if(isMaintenanceExempt()) { hideMaintenanceScreen(); return false; }
   const status = await fetchMaintenanceStatus();
   maintenancePages = status.pages;
   maintenanceMessage = status.message;
@@ -2273,7 +2296,7 @@ async function launchApp() {
   const bell = document.getElementById("notif-bell");
   if(bell) bell.style.display = (role==="responsable"||role==="pdg"||role==="admin") ? "flex" : "none";
 
-  if(role!=="admin") {
+  if(!isMaintenanceExempt()) {
     const blocked = await checkMaintenanceGate();
     if(blocked) { document.getElementById("app").style.display="none"; return; }
   }
@@ -2335,7 +2358,7 @@ async function confirmLogin() {
 
 
 async function loadAll() {
-  if(role!=="admin" && role!=="candidat") {
+  if(!isMaintenanceExempt() && role!=="candidat") {
     const blocked = await checkMaintenanceGate();
     if(blocked) {
       document.getElementById("app").style.display="none";
@@ -3264,28 +3287,40 @@ async function loadHierarchie() {
     if(el) el.innerHTML = '<div class="empty"><p>Erreur de chargement.</p></div>';
   }
 }
+const HIER_TIER_META = {
+  pdg:         {icon:"👔", label:"PDG",                    gradient:"linear-gradient(135deg,#1E8449,#176139)"},
+  responsable: {icon:"🎖", label:"Responsables de service", gradient:"linear-gradient(135deg,#7D3C98,#5B2C74)"},
+  agent:       {icon:"👮", label:"Agents de sécurité",       gradient:"linear-gradient(135deg,#2980B9,#1A5276)"},
+};
 function renderHierarchie(comptes) {
   const el = document.getElementById("hierarchie-list");
   if(!el) return;
   const canManage = (role==="pdg"||role==="admin");
-  if(!comptes.length) { el.innerHTML = '<div class="empty"><p>Aucun compte créé pour le moment.</p></div>'; return; }
-  const sorted = [...comptes].sort((a,b)=> (HIER_ORDER[a.role]??9)-(HIER_ORDER[b.role]??9) || a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
-  let lastRole = null;
-  el.innerHTML = sorted.map(c=>{
-    let sectionHeader = "";
-    if(c.role!==lastRole) {
-      sectionHeader = `<div style="font-size:10px;font-weight:800;color:#7EAAC8;text-transform:uppercase;letter-spacing:0.08em;margin:${lastRole?"18px":"0"} 0 8px;">${HIER_LABELS[c.role]||c.role}</div>`;
-      lastRole = c.role;
-    }
-    const roleControl = canManage ? `
-      <select onchange="changerRoleHierarchie('${c.id}', this.value, '${esc((c.prenom||"")+" "+(c.nom||""))}')" style="background:rgba(13,21,32,0.6);border:1px solid rgba(41,128,185,0.2);border-radius:7px;color:#fff;font-size:11px;padding:5px 8px;">
-        <option value="agent" ${c.role==="agent"?"selected":""}>Agent de sécurité</option>
-        <option value="responsable" ${c.role==="responsable"?"selected":""}>Responsable de service</option>
-        <option value="pdg" ${c.role==="pdg"?"selected":""}>PDG</option>
-      </select>` : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(HIER_LABELS[c.role]||c.role)}</span>`;
-    return `${sectionHeader}<div class="compte-item">
-      <div class="compte-nom">${esc(c.prenom)} ${esc(c.nom)}</div>
-      ${roleControl}
+  const visibles = comptes.filter(c=>!TEST_ACCOUNT_NAMES.includes(`${c.prenom||""} ${c.nom||""}`.trim()));
+  if(!visibles.length) { el.innerHTML = '<div class="empty"><p>Aucun compte créé pour le moment.</p></div>'; return; }
+
+  const roleSelect = (c) => `
+    <select onchange="changerRoleHierarchie('${c.id}', this.value, '${esc((c.prenom||"")+" "+(c.nom||""))}')" class="hier-role-select">
+      <option value="agent" ${c.role==="agent"?"selected":""}>Agent de sécurité</option>
+      <option value="responsable" ${c.role==="responsable"?"selected":""}>Responsable de service</option>
+      <option value="pdg" ${c.role==="pdg"?"selected":""}>PDG</option>
+    </select>`;
+
+  el.innerHTML = ["pdg","responsable","agent"].map(tier=>{
+    const membres = visibles.filter(c=>c.role===tier).sort((a,b)=>(a.nom||"").localeCompare(b.nom||"","fr",{sensitivity:"base"}));
+    if(!membres.length) return "";
+    const meta = HIER_TIER_META[tier];
+    const cards = membres.map(c=>{
+      const initials = `${(c.prenom||"?")[0]||""}${(c.nom||"?")[0]||""}`.toUpperCase();
+      return `<div class="hier-card">
+        <div class="hier-avatar" style="background:${meta.gradient}">${esc(initials)}</div>
+        <div class="hier-name">${esc(c.prenom)} ${esc(c.nom)}</div>
+        ${canManage ? roleSelect(c) : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(meta.label)}</span>`}
+      </div>`;
+    }).join("");
+    return `<div class="hier-section">
+      <div class="hier-section-hdr">${meta.icon} ${meta.label} <span class="count">${membres.length}</span></div>
+      <div class="hier-grid">${cards}</div>
     </div>`;
   }).join("");
 }
@@ -3355,4 +3390,3 @@ setupPageMaintOverlays();
 </script>
 </body>
 </html>
-
