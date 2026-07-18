@@ -1036,8 +1036,13 @@ const JOURNAL_TYPES = {
   incident_suivi_suppr:  {color:"#F08080", label:"Document"},
 };
 function journalMeta(type) { return JOURNAL_TYPES[type] || {color:"#7F9AB0", label:"Autre"}; }
+function specialRoleLabel() {
+  if(role==="responsable" && currentCompte && currentCompte.general) return "Responsable Général";
+  if(role==="pdg" && currentCompte && currentCompte.adjoint) return "PDG Adjoint";
+  return ROLE_LABELS[role]||role;
+}
 function currentActeurLabel() {
-  return (ROLE_LABELS[role]||role) + (currentAgent ? " — "+currentAgent.prenom+" "+currentAgent.nom : "");
+  return specialRoleLabel() + (currentAgent ? " — "+currentAgent.prenom+" "+currentAgent.nom : "");
 }
 async function logActivity(type, message, acteur) {
   try {
@@ -1472,7 +1477,7 @@ function buildDocInner(data, ref, overrideAuteur, overrideRole) {
 
   // Le cachet et la signature reflètent TOUJOURS qui est connecté au moment de la génération
   const auteur = overrideAuteur || identityLabel();
-  const auteurRole = overrideRole || ROLE_LABELS[role]||role;
+  const auteurRole = overrideRole || specialRoleLabel();
   const initials = auteur.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,3);
   const escHtml = s => (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const infoHTML = infoRows.map(r=>`<div><div class="lbl">${escHtml(r.l)}</div><div class="val">${escHtml(r.v)}</div></div>`).join("");
@@ -1552,7 +1557,7 @@ async function enregistrerDoc(formKind) {
   if(err) { toast(err,"#E74C3C"); return; }
   try {
     const ref = await nextDocReference(data.type);
-    const payload = {type:data.type, reference:ref, agent_nom:data.agentNom||null, data, auteur:identityLabel(), auteur_role: ROLE_LABELS[role]||role};
+    const payload = {type:data.type, reference:ref, agent_nom:data.agentNom||null, data, auteur:identityLabel(), auteur_role: specialRoleLabel()};
     if(data.type==="incident") { payload.statut = "À traiter"; payload.suivi = []; }
     const r = await fetch(SB_URL+"/rest/v1/documents", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
@@ -2296,10 +2301,7 @@ async function launchApp() {
   const topbarRole = document.getElementById("topbar-role");
   if(topbarRole) {
     const who = currentCompte ? " — "+currentCompte.prenom+" "+currentCompte.nom : "";
-    const isGeneral = role==="responsable" && currentCompte && currentCompte.general;
-    const isAdjoint = role==="pdg" && currentCompte && currentCompte.adjoint;
-    const specialLabel = isGeneral ? "Responsable Général" : isAdjoint ? "PDG Adjoint" : (ROLE_LABELS[role]||role);
-    topbarRole.textContent = specialLabel + who;
+    topbarRole.textContent = specialRoleLabel() + who;
     topbarRole.style.background = ROLE_COLORS[role]||"rgba(255,255,255,0.08)";
     topbarRole.style.color = ROLE_TEXT[role]||"#fff";
   }
@@ -3340,6 +3342,7 @@ function renderHierarchie(comptes) {
     const cards = membres.map(c=>{
       const initials = `${(c.prenom||"?")[0]||""}${(c.nom||"?")[0]||""}`.toUpperCase();
       const nomComplet = esc((c.prenom||"")+" "+(c.nom||""));
+      const isCDR = c.role==="pdg" || (c.role==="responsable" && c.general);
       const generalToggle = (c.role==="responsable" && canManage) ? `
         <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:var(--text2);margin-top:10px;cursor:pointer;">
           <input type="checkbox" ${c.general?"checked":""} onchange="toggleResponsableGeneral('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;accent-color:#F0A840;">
@@ -3350,10 +3353,17 @@ function renderHierarchie(comptes) {
           <input type="checkbox" ${c.adjoint?"checked":""} onchange="togglePdgAdjoint('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;accent-color:#48C9B0;">
           🏅 PDG Adjoint
         </label>` : "";
+      const cdrTag = (isCDR && canManage) ? `<div style="font-size:10px;font-weight:800;color:#F0A840;margin-bottom:6px;">🏛 Comité de Direction</div>` : "";
+      const roleDisplay = canManage
+        ? roleSelect(c)
+        : (isCDR
+            ? `<span class="compte-role" style="background:rgba(240,168,64,0.15);color:#F0A840;">🏛 Comité de Direction</span>`
+            : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(HIER_LABELS[c.role]||c.role)}</span>`);
       return `<div class="hier-card${isPdgTier?" tier-pdg":""}" style="--tier-accent:${meta.accent}">
         <div class="hier-avatar${isPdgTier?" tier-pdg-av":""}" style="background:${meta.gradient}">${esc(initials)}</div>
         <div class="hier-name">${esc(c.prenom)} ${esc(c.nom)}</div>
-        ${canManage ? roleSelect(c) : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(HIER_LABELS[c.role]||c.role)}</span>`}
+        ${cdrTag}
+        ${roleDisplay}
         ${generalToggle}
         ${adjointToggle}
       </div>`;
