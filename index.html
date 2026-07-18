@@ -89,7 +89,12 @@ input,select,textarea{font-family:inherit;}
 
 /* ═══ MAIN ═══ */
 .main{margin-left:210px;padding-top:58px;min-height:100vh;position:relative;z-index:1;}
-.page{display:none;padding:28px;}
+.page{display:none;padding:28px;position:relative;}
+.page-maint-overlay{display:none;position:absolute;inset:0;background:rgba(10,14,20,0.97);z-index:50;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;}
+.page-maint-overlay.show{display:flex;}
+.page-maint-overlay .icon{font-size:44px;margin-bottom:14px;}
+.page-maint-overlay .title{font-size:18px;font-weight:800;color:#fff;margin-bottom:8px;}
+.page-maint-overlay .msg{font-size:13px;color:var(--text2);max-width:400px;}
 .page.active{display:block;}
 .page-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;}
 .page-title span{color:var(--blue-light);}
@@ -651,14 +656,15 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         <span id="maint-status-badge" style="font-size:11px;color:var(--text2);"></span>
       </div>
       <div class="card-body">
-        <div class="page-sub" style="margin-bottom:14px;">Bloque l'accès à tout le monde sauf Admin — utile pour tester ou mettre à jour le site sans interférence.</div>
+        <div class="page-sub" style="margin-bottom:14px;">Choisissez la ou les pages à bloquer pour tout le monde sauf Admin (ou "Tout le site" pour un blocage complet). L'état est stocké côté serveur : il ne se réinitialise ni au rafraîchissement, ni à une mise à jour du site.</div>
+        <div id="maint-pages-list" style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px;"></div>
         <div class="field">
           <label>Message affiché (optionnel)</label>
           <textarea id="maint-msg" rows="2" placeholder="Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants."></textarea>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-danger" onclick="activerMaintenance()">🚧 Activer la maintenance</button>
-          <button class="btn btn-success" onclick="desactiverMaintenance()">✓ Désactiver la maintenance</button>
+          <button class="btn btn-danger" onclick="enregistrerMaintenance()">💾 Enregistrer</button>
+          <button class="btn btn-success" onclick="toutDesactiverMaintenance()">✓ Tout désactiver</button>
         </div>
       </div>
     </div>
@@ -2066,30 +2072,80 @@ function updateNotifBadges() {
 }
 
 // ─── MODE MAINTENANCE (Admin) ────────────────────────────────────────
+const MAINTENANCE_PAGE_OPTIONS = [
+  {id:"ALL", label:"🌐 Tout le site"},
+  {id:"patrouilles", label:"Patrouilles"},
+  {id:"mon-service", label:"Mon service"},
+  {id:"absence-form", label:"Déclarer une absence"},
+  {id:"incident", label:"Rapport d'incident"},
+  {id:"absences-gestion", label:"Gestion des absences"},
+  {id:"logs-service", label:"Logs de service"},
+  {id:"candidatures", label:"Candidatures reçues"},
+  {id:"evaluations", label:"Évaluations agents"},
+  {id:"doc-rh", label:"Documents RH"},
+  {id:"admin-comptes", label:"Gestion des comptes"},
+  {id:"candidature-form", label:"Formulaire de candidature (public)"},
+];
+let maintenancePages = [];
+let maintenanceMessage = "";
 let _maintenancePoll = null;
+
 async function fetchMaintenanceStatus() {
   try {
     const rows = await sb("maintenance_mode?select=*&order=updated_at.desc&limit=1");
-    return (rows && rows[0]) || {actif:false};
-  } catch(e) { return {actif:false}; }
+    const r = (rows && rows[0]) || {pages:[], message:null};
+    return { pages: r.pages||[], message: r.message||"" };
+  } catch(e) { return { pages:[], message:"" }; }
 }
+
 function showMaintenanceScreen(message) {
   const msgEl = document.getElementById("maintenance-message");
-  if(msgEl && message) msgEl.textContent = message;
+  if(msgEl) msgEl.textContent = message || "Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants.";
   document.getElementById("maintenance-screen")?.classList.add("show");
 }
 function hideMaintenanceScreen() {
   document.getElementById("maintenance-screen")?.classList.remove("show");
 }
+
+function setupPageMaintOverlays() {
+  document.querySelectorAll(".page").forEach(p=>{
+    if(p.querySelector(".page-maint-overlay")) return;
+    const ov = document.createElement("div");
+    ov.className = "page-maint-overlay";
+    ov.innerHTML = `<div class="icon">🚧</div><div class="title">Page en maintenance</div><div class="msg"></div>`;
+    p.appendChild(ov);
+  });
+}
+function applyMaintenanceOverlays() {
+  document.querySelectorAll(".page").forEach(p=>{
+    const ov = p.querySelector(".page-maint-overlay");
+    if(!ov) return;
+    const pid = p.id.replace("page-","");
+    const affected = role!=="admin" && (maintenancePages.includes("ALL") || maintenancePages.includes(pid));
+    if(affected) {
+      ov.querySelector(".msg").textContent = maintenanceMessage || "Cette section est temporairement indisponible pour une mise à jour.";
+      ov.classList.add("show");
+    } else {
+      ov.classList.remove("show");
+    }
+  });
+}
+
+// Renvoie true si la maintenance concerne TOUT le site (blocage complet, non fermable)
 async function checkMaintenanceGate() {
   if(role==="admin") { hideMaintenanceScreen(); return false; }
   const status = await fetchMaintenanceStatus();
-  if(status.actif) {
-    showMaintenanceScreen(status.message || "Le site est temporairement indisponible pour une mise à jour. Merci de réessayer dans quelques instants.");
+  maintenancePages = status.pages;
+  maintenanceMessage = status.message;
+  applyMaintenanceOverlays();
+  if(maintenancePages.includes("ALL")) {
+    showMaintenanceScreen(maintenanceMessage);
     if(!_maintenancePoll) {
       _maintenancePoll = setInterval(async ()=>{
         const s2 = await fetchMaintenanceStatus();
-        if(!s2.actif) {
+        maintenancePages = s2.pages;
+        maintenanceMessage = s2.message;
+        if(!maintenancePages.includes("ALL")) {
           clearInterval(_maintenancePoll); _maintenancePoll = null;
           hideMaintenanceScreen();
           finishLaunch();
@@ -2101,35 +2157,59 @@ async function checkMaintenanceGate() {
   hideMaintenanceScreen();
   return false;
 }
-async function activerMaintenance() {
+
+function renderMaintPagesList() {
+  const el = document.getElementById("maint-pages-list");
+  if(!el) return;
+  el.innerHTML = MAINTENANCE_PAGE_OPTIONS.map(p=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">
+      <input type="checkbox" class="maint-page-cb" value="${p.id}" ${maintenancePages.includes(p.id)?"checked":""} style="width:16px;height:16px;accent-color:#C0392B;">
+      ${esc(p.label)}
+    </label>`).join("");
+  const msgEl = document.getElementById("maint-msg");
+  if(msgEl && !msgEl.value) msgEl.value = maintenanceMessage||"";
+}
+
+async function enregistrerMaintenance() {
+  const checked = Array.from(document.querySelectorAll(".maint-page-cb:checked")).map(i=>i.value);
   const msg = document.getElementById("maint-msg").value.trim();
   try {
     const r = await fetch(SB_URL+"/rest/v1/maintenance_mode", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
-      body: JSON.stringify({actif:true, message: msg||null, updated_by: identityLabel()})
+      body: JSON.stringify({pages: checked, message: msg||null, updated_by: identityLabel()})
     });
     if(!r.ok) throw new Error(await r.text());
-    logActivity("maintenance_on", "Mode maintenance activé"+(msg?` : "${msg}"`:""));
-    toast("🚧 Mode maintenance activé pour tout le monde sauf Admin");
-    refreshMaintStatusBadge();
+    const labels = checked.map(id=>(MAINTENANCE_PAGE_OPTIONS.find(o=>o.id===id)||{}).label||id);
+    logActivity("maintenance_maj", checked.length ? `Maintenance activée sur : ${labels.join(", ")}` : "Maintenance désactivée (aucune page sélectionnée)");
+    toast(checked.length ? "🚧 Maintenance enregistrée" : "✓ Maintenance désactivée");
+    await refreshMaintStatusBadge();
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
-async function desactiverMaintenance() {
+async function toutDesactiverMaintenance() {
   try {
     const r = await fetch(SB_URL+"/rest/v1/maintenance_mode", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
-      body: JSON.stringify({actif:false, updated_by: identityLabel()})
+      body: JSON.stringify({pages:[], message:null, updated_by: identityLabel()})
     });
     if(!r.ok) throw new Error(await r.text());
-    logActivity("maintenance_off", "Mode maintenance désactivé");
-    toast("✓ Mode maintenance désactivé");
-    refreshMaintStatusBadge();
+    logActivity("maintenance_off", "Mode maintenance entièrement désactivé");
+    toast("✓ Mode maintenance désactivé partout");
+    document.getElementById("maint-msg").value = "";
+    await refreshMaintStatusBadge();
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
 async function refreshMaintStatusBadge() {
   const status = await fetchMaintenanceStatus();
+  maintenancePages = status.pages;
+  maintenanceMessage = status.message;
+  renderMaintPagesList();
+  applyMaintenanceOverlays();
   const badge = document.getElementById("maint-status-badge");
-  if(badge) badge.textContent = status.actif ? "🔴 Maintenance actuellement ACTIVE" : "🟢 Site normal (pas de maintenance)";
+  if(badge) {
+    if(!maintenancePages.length) badge.textContent = "🟢 Site normal (pas de maintenance)";
+    else if(maintenancePages.includes("ALL")) badge.textContent = "🔴 Tout le site est en maintenance";
+    else badge.textContent = `🟠 ${maintenancePages.length} page(s) en maintenance`;
+  }
 }
 
 function finishLaunch() {
@@ -3191,7 +3271,10 @@ async function supprimerCompte(id) {
   } catch(e){ toast("Erreur suppression","#E74C3C"); }
 }
 
+setupPageMaintOverlays();
+
 </script>
 </body>
 </html>
+
 
