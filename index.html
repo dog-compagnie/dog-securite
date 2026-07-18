@@ -403,7 +403,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         </button>
         <button class="role-btn" onclick="selectRole('responsable')" id="role-responsable">
           <span class="role-icon">🎖</span>
-          <span class="role-name">Responsable de service</span>
+          <span class="role-name">Responsable</span>
         </button>
         <button class="role-btn" onclick="selectRole('pdg')" id="role-pdg">
           <span class="role-icon">👔</span>
@@ -639,7 +639,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
               <label>Rôle</label>
               <select id="ac-role">
                 <option value="agent">Agent de sécurité</option>
-                <option value="responsable">Responsable de service</option>
+                <option value="responsable">Responsable</option>
                 <option value="pdg">PDG</option>
               </select>
             </div>
@@ -989,7 +989,7 @@ let _refreshInterval = null;
 let _timerInterval = null;
 let _serviceDebut = null; // timestamp ISO du service en cours
 
-const ROLE_LABELS = {agent:"Agent de sécurité", responsable:"Responsable de service", pdg:"PDG", candidat:"Candidat", admin:"Administrateur"};
+const ROLE_LABELS = {agent:"Agent de sécurité", responsable:"Responsable", pdg:"PDG", candidat:"Candidat", admin:"Administrateur"};
 const ROLE_COLORS = {agent:"rgba(41,128,185,0.2)", responsable:"rgba(155,89,182,0.2)", pdg:"rgba(30,132,73,0.2)", candidat:"rgba(211,84,0,0.2)", admin:"rgba(192,57,43,0.2)"};
 const ROLE_TEXT   = {agent:"#5DADE2", responsable:"#C8A0E8", pdg:"#52D98B", candidat:"#F0A840", admin:"#F08080"};
 
@@ -1011,6 +1011,7 @@ const JOURNAL_TYPES = {
   compte_cree:          {color:"#5DADE2", label:"Compte"},
   compte_supprime:      {color:"#F08080", label:"Compte"},
   hierarchie_role:      {color:"#9B59B6", label:"Compte"},
+  hierarchie_general:   {color:"#F0A840", label:"Compte"},
   service_log_suppr:    {color:"#F08080", label:"Service"},
   service_force_fin:    {color:"#F0A840", label:"Service"},
   service_modif:        {color:"#5DADE2", label:"Service"},
@@ -2289,7 +2290,8 @@ async function launchApp() {
   const topbarRole = document.getElementById("topbar-role");
   if(topbarRole) {
     const who = currentCompte ? " — "+currentCompte.prenom+" "+currentCompte.nom : "";
-    topbarRole.textContent = (ROLE_LABELS[role]||role) + who;
+    const isGeneral = role==="responsable" && currentCompte && currentCompte.general;
+    topbarRole.textContent = (isGeneral ? "Responsable Général" : (ROLE_LABELS[role]||role)) + who;
     topbarRole.style.background = ROLE_COLORS[role]||"rgba(255,255,255,0.08)";
     topbarRole.style.color = ROLE_TEXT[role]||"#fff";
   }
@@ -3278,7 +3280,7 @@ async function loadComptes() {
 
 // ─── HIÉRARCHIE ──────────────────────────────────────────────────────
 const HIER_ORDER = {pdg:0, responsable:1, agent:2};
-const HIER_LABELS = {pdg:"PDG", responsable:"Responsable de service", agent:"Agent de sécurité"};
+const HIER_LABELS = {pdg:"PDG", responsable:"Responsable", agent:"Agent de sécurité"};
 async function loadHierarchie() {
   const el = document.getElementById("hierarchie-list");
   try {
@@ -3303,7 +3305,7 @@ function renderHierarchie(comptes) {
   const roleSelect = (c) => `
     <select onchange="changerRoleHierarchie('${c.id}', this.value, '${esc((c.prenom||"")+" "+(c.nom||""))}')" class="hier-role-select">
       <option value="agent" ${c.role==="agent"?"selected":""}>Agent de sécurité</option>
-      <option value="responsable" ${c.role==="responsable"?"selected":""}>Responsable de service</option>
+      <option value="responsable" ${c.role==="responsable"?"selected":""}>Responsable</option>
       <option value="pdg" ${c.role==="pdg"?"selected":""}>PDG</option>
     </select>`;
 
@@ -3313,10 +3315,19 @@ function renderHierarchie(comptes) {
     const meta = HIER_TIER_META[tier];
     const cards = membres.map(c=>{
       const initials = `${(c.prenom||"?")[0]||""}${(c.nom||"?")[0]||""}`.toUpperCase();
+      const nomComplet = esc((c.prenom||"")+" "+(c.nom||""));
+      const generalBadge = (tier==="responsable" && c.general) ? `<div style="font-size:10px;font-weight:800;color:#F0A840;margin-bottom:8px;">⭐ Responsable Général</div>` : "";
+      const generalToggle = (tier==="responsable" && canManage) ? `
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:var(--text2);margin-top:8px;cursor:pointer;">
+          <input type="checkbox" ${c.general?"checked":""} onchange="toggleResponsableGeneral('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;">
+          Responsable Général
+        </label>` : "";
       return `<div class="hier-card">
         <div class="hier-avatar" style="background:${meta.gradient}">${esc(initials)}</div>
         <div class="hier-name">${esc(c.prenom)} ${esc(c.nom)}</div>
+        ${generalBadge}
         ${canManage ? roleSelect(c) : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(meta.label)}</span>`}
+        ${generalToggle}
       </div>`;
     }).join("");
     return `<div class="hier-section">
@@ -3327,9 +3338,19 @@ function renderHierarchie(comptes) {
 }
 async function changerRoleHierarchie(id, newRole, nomComplet) {
   try {
-    await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({role:newRole})});
+    const payload = {role:newRole};
+    if(newRole!=="responsable") payload.general = false;
+    await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(payload)});
     logActivity("hierarchie_role", `${nomComplet.trim()} est passé au rôle : ${HIER_LABELS[newRole]||newRole}`);
     toast("✓ Rôle mis à jour pour "+nomComplet.trim());
+    loadHierarchie();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function toggleResponsableGeneral(id, checked, nomComplet) {
+  try {
+    await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({general:checked})});
+    logActivity("hierarchie_general", `${nomComplet.trim()} ${checked?"devient Responsable Général":"n'est plus Responsable Général"}`);
+    toast(checked ? "⭐ "+nomComplet.trim()+" est désormais Responsable Général" : "✓ Statut retiré pour "+nomComplet.trim());
     loadHierarchie();
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
@@ -3391,4 +3412,3 @@ setupPageMaintOverlays();
 </script>
 </body>
 </html>
-
