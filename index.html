@@ -1819,14 +1819,14 @@ function backToStep1() {
 // ─── NAVIGATION (menu latéral + pages) ──────────────────────────────
 const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
-  {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg"],         section:"Opérations"},
-  {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg"],         section:"Opérations"},
+  {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
+  {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg","admin"],         section:"Opérations", badgeId:"nav-badge-inc"},
   {page:"absences-gestion", icon:"📋", label:"Gestion des absences",  roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-abs"},
   {page:"logs-service",     icon:"📊", label:"Logs de service",       roles:["responsable","pdg","admin"],         section:"Gestion"},
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
-  {page:"evaluations",      icon:"🎯", label:"Évaluations agents",    roles:["responsable","pdg"],                 section:"Gestion", badgeId:"nav-badge-eval"},
-  {page:"doc-rh",           icon:"🗂️", label:"Documents RH",          roles:["responsable","pdg"],                 section:"Gestion"},
+  {page:"evaluations",      icon:"🎯", label:"Évaluations agents",    roles:["responsable","pdg","admin"],                 section:"Gestion", badgeId:"nav-badge-eval"},
+  {page:"doc-rh",           icon:"🗂️", label:"Documents RH",          roles:["responsable","pdg","admin"],                 section:"Gestion"},
   {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
   {page:"journal",          icon:"🗒️", label:"Journal d'activité",    roles:["admin"],                             section:"Administration"},
   {page:"candidature-form", icon:"📝", label:"Candidater au service", roles:["candidat"],                          section:""},
@@ -3276,5 +3276,3 @@ setupPageMaintOverlays();
 </script>
 </body>
 </html>
-
-
