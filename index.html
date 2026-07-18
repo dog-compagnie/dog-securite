@@ -2233,7 +2233,9 @@ function finishLaunch() {
   goPage(defaultPage);
 
   clearInterval(_refreshInterval); _refreshInterval=null;
-  if(role!=="candidat") {
+  if(role==="candidat") {
+    _refreshInterval = setInterval(checkMaintenanceGate, 15000);
+  } else {
     loadAll();
     _refreshInterval = setInterval(loadAll, 15000);
   }
@@ -2254,7 +2256,7 @@ async function launchApp() {
   const bell = document.getElementById("notif-bell");
   if(bell) bell.style.display = (role==="responsable"||role==="pdg"||role==="admin") ? "flex" : "none";
 
-  if(role!=="admin" && role!=="candidat") {
+  if(role!=="admin") {
     const blocked = await checkMaintenanceGate();
     if(blocked) { document.getElementById("app").style.display="none"; return; }
   }
@@ -3290,4 +3292,3 @@ setupPageMaintOverlays();
 </script>
 </body>
 </html>
-
