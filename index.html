@@ -654,6 +654,20 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   </div>
 
   <!-- PAGE JOURNAL D'ACTIVITÉ (Admin uniquement) -->
+  <div class="page" id="page-hierarchie">
+    <div class="page-title">Hiérarchie <span>du service</span></div>
+    <div class="page-sub">Organisation actuelle de l'équipe de sécurité.</div>
+    <div class="card" style="max-width:700px;">
+      <div class="card-hdr">
+        <div class="card-hdr-title">🪖 Organigramme</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadHierarchie()">🔄 Actualiser</button>
+      </div>
+      <div class="card-body" id="hierarchie-list">
+        <div class="empty"><p>Chargement…</p></div>
+      </div>
+    </div>
+  </div>
+
   <div class="page" id="page-journal">
     <div class="page-title">Journal <span>d'activité</span></div>
     <div class="page-sub">Historique complet des actions : candidatures, absences, patrouilles, comptes.</div>
@@ -984,6 +998,7 @@ const JOURNAL_TYPES = {
   patrouille_maj:       {color:"#52D98B", label:"Patrouille"},
   compte_cree:          {color:"#5DADE2", label:"Compte"},
   compte_supprime:      {color:"#F08080", label:"Compte"},
+  hierarchie_role:      {color:"#9B59B6", label:"Compte"},
   service_log_suppr:    {color:"#F08080", label:"Service"},
   service_force_fin:    {color:"#F0A840", label:"Service"},
   service_modif:        {color:"#5DADE2", label:"Service"},
@@ -1827,6 +1842,7 @@ function backToStep1() {
 // ─── NAVIGATION (menu latéral + pages) ──────────────────────────────
 const NAV_CONFIG = [
   {page:"patrouilles",      icon:"👮", label:"Patrouilles",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
+  {page:"hierarchie",       icon:"🪖", label:"Hiérarchie",            roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"mon-service",      icon:"🟢", label:"Mon service",           roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"absence-form",     icon:"📅", label:"Déclarer une absence",  roles:["agent","responsable","pdg","admin"], section:"Opérations"},
   {page:"incident",         icon:"🚨", label:"Rapport d'incident",    roles:["agent","responsable","pdg","admin"],         section:"Opérations", badgeId:"nav-badge-inc"},
@@ -1882,6 +1898,7 @@ function goPage(pageId) {
   if(pageId==="absences-gestion")  renderAbsences();
   if(pageId==="logs-service")      loadLogs();
   if(pageId==="admin-comptes")     loadComptes();
+  if(pageId==="hierarchie")        loadHierarchie();
   if(pageId==="journal")           { loadJournal(); refreshMaintStatusBadge(); }
   if(pageId==="evaluations")       loadEvaluations();
   if(pageId==="doc-rh")            { setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh"); }
@@ -3235,6 +3252,52 @@ async function loadComptes() {
   } catch(e) { toast("Erreur chargement comptes","#E74C3C"); }
 }
 
+// ─── HIÉRARCHIE ──────────────────────────────────────────────────────
+const HIER_ORDER = {pdg:0, responsable:1, agent:2};
+const HIER_LABELS = {pdg:"PDG", responsable:"Responsable de service", agent:"Agent de sécurité"};
+async function loadHierarchie() {
+  const el = document.getElementById("hierarchie-list");
+  try {
+    const comptes = await sb("agents_comptes?select=*&order=nom");
+    renderHierarchie(comptes||[]);
+  } catch(e) {
+    if(el) el.innerHTML = '<div class="empty"><p>Erreur de chargement.</p></div>';
+  }
+}
+function renderHierarchie(comptes) {
+  const el = document.getElementById("hierarchie-list");
+  if(!el) return;
+  const canManage = (role==="pdg"||role==="admin");
+  if(!comptes.length) { el.innerHTML = '<div class="empty"><p>Aucun compte créé pour le moment.</p></div>'; return; }
+  const sorted = [...comptes].sort((a,b)=> (HIER_ORDER[a.role]??9)-(HIER_ORDER[b.role]??9) || a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+  let lastRole = null;
+  el.innerHTML = sorted.map(c=>{
+    let sectionHeader = "";
+    if(c.role!==lastRole) {
+      sectionHeader = `<div style="font-size:10px;font-weight:800;color:#7EAAC8;text-transform:uppercase;letter-spacing:0.08em;margin:${lastRole?"18px":"0"} 0 8px;">${HIER_LABELS[c.role]||c.role}</div>`;
+      lastRole = c.role;
+    }
+    const roleControl = canManage ? `
+      <select onchange="changerRoleHierarchie('${c.id}', this.value, '${esc((c.prenom||"")+" "+(c.nom||""))}')" style="background:rgba(13,21,32,0.6);border:1px solid rgba(41,128,185,0.2);border-radius:7px;color:#fff;font-size:11px;padding:5px 8px;">
+        <option value="agent" ${c.role==="agent"?"selected":""}>Agent de sécurité</option>
+        <option value="responsable" ${c.role==="responsable"?"selected":""}>Responsable de service</option>
+        <option value="pdg" ${c.role==="pdg"?"selected":""}>PDG</option>
+      </select>` : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(HIER_LABELS[c.role]||c.role)}</span>`;
+    return `${sectionHeader}<div class="compte-item">
+      <div class="compte-nom">${esc(c.prenom)} ${esc(c.nom)}</div>
+      ${roleControl}
+    </div>`;
+  }).join("");
+}
+async function changerRoleHierarchie(id, newRole, nomComplet) {
+  try {
+    await sb(`agents_comptes?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({role:newRole})});
+    logActivity("hierarchie_role", `${nomComplet.trim()} est passé au rôle : ${HIER_LABELS[newRole]||newRole}`);
+    toast("✓ Rôle mis à jour pour "+nomComplet.trim());
+    loadHierarchie();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
 function renderComptes() {
   const el = document.getElementById("comptes-list");
   const cnt = document.getElementById("comptes-count");
@@ -3292,3 +3355,4 @@ setupPageMaintOverlays();
 </script>
 </body>
 </html>
+
