@@ -286,14 +286,20 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .compte-pin{font-size:11px;color:var(--text3);font-family:monospace;letter-spacing:2px;}
 
 /* HIÉRARCHIE */
-.hier-section{margin-bottom:26px;}
-.hier-section:last-child{margin-bottom:0;}
-.hier-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;font-weight:800;color:#A8CFEA;}
-.hier-section-hdr .count{background:rgba(41,128,185,0.15);color:#5DADE2;font-size:10px;padding:2px 9px;border-radius:10px;font-weight:700;}
-.hier-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
-.hier-card{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-radius:14px;padding:18px 12px 14px;text-align:center;transition:border-color 0.15s, transform 0.15s;}
-.hier-card:hover{border-color:rgba(41,128,185,0.4);transform:translateY(-2px);}
-.hier-avatar{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;margin:0 auto 10px;box-shadow:0 4px 14px rgba(0,0,0,0.35);}
+.hier-connector{width:2px;height:26px;background:linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.22), rgba(255,255,255,0.02));margin:0 auto;}
+.hier-section{margin-bottom:8px;}
+.hier-section-hdr{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px;}
+.hier-section-hdr .badge{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 0 4px rgba(255,255,255,0.03);flex-shrink:0;}
+.hier-section-hdr .label{font-size:13px;font-weight:800;color:#fff;letter-spacing:0.02em;}
+.hier-section-hdr .count{background:rgba(255,255,255,0.07);color:var(--text2);font-size:10px;padding:2px 9px;border-radius:10px;font-weight:700;}
+.hier-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-bottom:30px;}
+.hier-grid-center{display:flex;flex-wrap:wrap;justify-content:center;}
+.hier-grid-center .hier-card{width:190px;}
+.hier-card{background:var(--bg2);border:1px solid var(--border);border-top:3px solid var(--tier-accent, var(--blue));border-radius:14px;padding:20px 14px 16px;text-align:center;transition:transform 0.15s, box-shadow 0.15s;}
+.hier-card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,0.35);}
+.hier-card.tier-pdg{padding-top:24px;padding-bottom:20px;box-shadow:0 4px 20px rgba(30,132,73,0.12);}
+.hier-avatar{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;margin:0 auto 12px;box-shadow:0 4px 14px rgba(0,0,0,0.35);}
+.hier-avatar.tier-pdg-av{width:62px;height:62px;font-size:20px;}
 .hier-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:10px;}
 .hier-role-select{width:100%;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.25);border-radius:7px;color:#fff;font-size:11px;padding:6px 6px;text-align:center;}
 
@@ -3291,9 +3297,10 @@ async function loadHierarchie() {
   }
 }
 const HIER_TIER_META = {
-  pdg:         {icon:"👔", label:"PDG",                    gradient:"linear-gradient(135deg,#1E8449,#176139)"},
-  responsable: {icon:"🎖", label:"Responsables de service", gradient:"linear-gradient(135deg,#7D3C98,#5B2C74)"},
-  agent:       {icon:"👮", label:"Agents de sécurité",       gradient:"linear-gradient(135deg,#2980B9,#1A5276)"},
+  pdg:         {icon:"👔", label:"PDG",                 gradient:"linear-gradient(135deg,#1E8449,#176139)", accent:"#52D98B"},
+  general:     {icon:"⭐", label:"Responsable Général",  gradient:"linear-gradient(135deg,#D4900A,#A6720A)", accent:"#F0A840"},
+  responsable: {icon:"🎖", label:"Responsables",          gradient:"linear-gradient(135deg,#7D3C98,#5B2C74)", accent:"#C8A0E8"},
+  agent:       {icon:"👮", label:"Agents de sécurité",    gradient:"linear-gradient(135deg,#2980B9,#1A5276)", accent:"#5DADE2"},
 };
 function renderHierarchie(comptes) {
   const el = document.getElementById("hierarchie-list");
@@ -3309,30 +3316,44 @@ function renderHierarchie(comptes) {
       <option value="pdg" ${c.role==="pdg"?"selected":""}>PDG</option>
     </select>`;
 
-  el.innerHTML = ["pdg","responsable","agent"].map(tier=>{
-    const membres = visibles.filter(c=>c.role===tier).sort((a,b)=>(a.nom||"").localeCompare(b.nom||"","fr",{sensitivity:"base"}));
+  // Groupe visuel : les Responsables Généraux forment leur propre palier, au-dessus des Responsables classiques
+  const groups = {
+    pdg:         visibles.filter(c=>c.role==="pdg"),
+    general:     visibles.filter(c=>c.role==="responsable" && c.general),
+    responsable: visibles.filter(c=>c.role==="responsable" && !c.general),
+    agent:       visibles.filter(c=>c.role==="agent"),
+  };
+
+  let lastRendered = false;
+  el.innerHTML = ["pdg","general","responsable","agent"].map(tierKey=>{
+    const membres = groups[tierKey].sort((a,b)=>(a.nom||"").localeCompare(b.nom||"","fr",{sensitivity:"base"}));
     if(!membres.length) return "";
-    const meta = HIER_TIER_META[tier];
+    const meta = HIER_TIER_META[tierKey];
+    const connector = lastRendered ? `<div class="hier-connector"></div>` : "";
+    lastRendered = true;
+    const isPdgTier = tierKey==="pdg";
     const cards = membres.map(c=>{
       const initials = `${(c.prenom||"?")[0]||""}${(c.nom||"?")[0]||""}`.toUpperCase();
       const nomComplet = esc((c.prenom||"")+" "+(c.nom||""));
-      const generalBadge = (tier==="responsable" && c.general) ? `<div style="font-size:10px;font-weight:800;color:#F0A840;margin-bottom:8px;">⭐ Responsable Général</div>` : "";
-      const generalToggle = (tier==="responsable" && canManage) ? `
-        <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:var(--text2);margin-top:8px;cursor:pointer;">
-          <input type="checkbox" ${c.general?"checked":""} onchange="toggleResponsableGeneral('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;">
-          Responsable Général
+      const generalToggle = (c.role==="responsable" && canManage) ? `
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:var(--text2);margin-top:10px;cursor:pointer;">
+          <input type="checkbox" ${c.general?"checked":""} onchange="toggleResponsableGeneral('${c.id}', this.checked, '${nomComplet}')" style="width:13px;height:13px;accent-color:#F0A840;">
+          ⭐ Responsable Général
         </label>` : "";
-      return `<div class="hier-card">
-        <div class="hier-avatar" style="background:${meta.gradient}">${esc(initials)}</div>
+      return `<div class="hier-card${isPdgTier?" tier-pdg":""}" style="--tier-accent:${meta.accent}">
+        <div class="hier-avatar${isPdgTier?" tier-pdg-av":""}" style="background:${meta.gradient}">${esc(initials)}</div>
         <div class="hier-name">${esc(c.prenom)} ${esc(c.nom)}</div>
-        ${generalBadge}
-        ${canManage ? roleSelect(c) : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(meta.label)}</span>`}
+        ${canManage ? roleSelect(c) : `<span class="compte-role" style="background:${ROLE_COLORS[c.role]||"rgba(255,255,255,0.08)"};color:${ROLE_TEXT[c.role]||"#fff"};">${esc(HIER_LABELS[c.role]||c.role)}</span>`}
         ${generalToggle}
       </div>`;
     }).join("");
-    return `<div class="hier-section">
-      <div class="hier-section-hdr">${meta.icon} ${meta.label} <span class="count">${membres.length}</span></div>
-      <div class="hier-grid">${cards}</div>
+    return `${connector}<div class="hier-section">
+      <div class="hier-section-hdr">
+        <div class="badge" style="background:${meta.gradient}">${meta.icon}</div>
+        <span class="label">${meta.label}</span>
+        <span class="count">${membres.length}</span>
+      </div>
+      <div class="hier-grid${isPdgTier?" hier-grid-center":""}">${cards}</div>
     </div>`;
   }).join("");
 }
