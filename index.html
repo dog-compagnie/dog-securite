@@ -3178,16 +3178,17 @@ async function submitDebutRequest(id) {
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
 async function validerDebutDemande(id) {
-  const l = allLogs.find(x=>String(x.id)===String(id));
-  if(!l || !l.debut_demande) return;
-  const payload = {debut:l.debut_demande, debut_demande:null, debut_statut:null};
-  if(l.fin) payload.duree_minutes = Math.round((new Date(l.fin)-new Date(l.debut_demande))/60000);
   try {
+    const rows = await sb(`services_logs?id=eq.${id}&select=*`);
+    const l = rows && rows[0];
+    if(!l || !l.debut_demande) { toast("Demande introuvable ou déjà traitée.","#E74C3C"); return; }
+    const payload = {debut:l.debut_demande, debut_demande:null, debut_statut:null};
+    if(l.fin) payload.duree_minutes = Math.round((new Date(l.fin)-new Date(l.debut_demande))/60000);
     await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(payload)});
     logActivity("service_debut_valide", `Prise de service de ${l.agent_nom} corrigée (validée par ${identityLabel()})`);
-    toast("✓ Correction validée");
+    toast("✓ Correction validée — durée recalculée"+(l.fin?` : ${fmtDuree(payload.duree_minutes)}`:""));
     await loadLogs();
-  } catch(e) { toast("Erreur","#E74C3C"); }
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
 }
 async function refuserDebutDemande(id) {
   const l = allLogs.find(x=>String(x.id)===String(id));
