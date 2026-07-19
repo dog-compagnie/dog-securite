@@ -586,10 +586,11 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         <div class="card-hdr"><div class="card-hdr-title">💬 Échanger avec le Responsable / PDG</div></div>
         <div class="card-body">
           <div id="cand-chat-thread" style="max-height:320px;overflow-y:auto;margin-bottom:12px;"></div>
-          <div style="display:flex;gap:8px;">
+          <div id="cand-chat-input-row" style="display:flex;gap:8px;">
             <input id="cand-chat-input" placeholder="Écrivez un message…" style="flex:1;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.25);border-radius:8px;color:#fff;font-size:13px;padding:9px 12px;" onkeydown="if(event.key==='Enter')sendCandidatMessage()">
             <button class="btn btn-primary" onclick="sendCandidatMessage()">Envoyer</button>
           </div>
+          <div id="cand-chat-closed-notice" style="display:none;font-size:12px;color:var(--text3);font-style:italic;text-align:center;">La messagerie est fermée pour cette candidature.</div>
         </div>
       </div>
     </div>
@@ -1015,6 +1016,33 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   </div>
 </div>
 
+<!-- ═══ QUESTIONNAIRE D'ENTRETIEN (Responsable/PDG uniquement — jamais visible au candidat) ═══ -->
+<div id="entretien-modal" class="alert-popup">
+  <div class="alert-popup-box" style="max-width:560px;max-height:85vh;overflow-y:auto;text-align:left;">
+    <div class="alert-popup-title" style="text-align:center;">📋 Questionnaire d'entretien</div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:14px;font-style:italic;">Usage interne uniquement — jamais visible par le candidat.</div>
+    <div class="field"><label>Date de l'entretien</label><input type="date" id="ent-date"></div>
+    <div class="field"><label>Présentation générale</label><textarea id="ent-presentation" rows="2" placeholder="Attitude, sérieux, communication…"></textarea></div>
+    <div class="field"><label>Motivation</label><textarea id="ent-motivation" rows="2"></textarea></div>
+    <div class="field"><label>Compétences / expérience</label><textarea id="ent-competences" rows="2"></textarea></div>
+    <div class="field"><label>Points forts</label><textarea id="ent-forces" rows="2"></textarea></div>
+    <div class="field"><label>Points de vigilance</label><textarea id="ent-vigilance" rows="2"></textarea></div>
+    <div class="field">
+      <label>Recommandation</label>
+      <select id="ent-recommandation">
+        <option value="">— Sélectionner —</option>
+        <option value="Favorable">Favorable</option>
+        <option value="Réservé">Réservé</option>
+        <option value="Défavorable">Défavorable</option>
+      </select>
+    </div>
+    <div class="field"><label>Notes libres</label><textarea id="ent-notes" rows="3"></textarea></div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:10px;" id="ent-meta"></div>
+    <button class="btn btn-success btn-full" onclick="enregistrerEntretien()">💾 Enregistrer</button>
+    <button class="btn btn-ghost btn-full" onclick="closeEntretien()" style="margin-top:8px;">Fermer</button>
+  </div>
+</div>
+
 <script>
 const SB_URL = "https://mrcbbkthunfrijpmbqak.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY2Jia3RodW5mcmlqcG1icWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDI0MjEsImV4cCI6MjA5OTYxODQyMX0.6GNyG8oK2cMV4v5qDiEhACZQ3WI69tPJ_cRlpCjcDHg";
@@ -1056,6 +1084,7 @@ const JOURNAL_TYPES = {
   candidature_statut:   {color:"#C8A0E8", label:"Candidature"},
   candidature_suppr:    {color:"#F08080", label:"Candidature"},
   candidat_promu:       {color:"#52D98B", label:"Candidature"},
+  entretien_maj:        {color:"#C8A0E8", label:"Candidature"},
   absence_nouvelle:     {color:"#F0A840", label:"Absence"},
   absence_statut:       {color:"#F0A840", label:"Absence"},
   absence_suppr:        {color:"#F08080", label:"Absence"},
@@ -2056,11 +2085,20 @@ function getNotifications() {
   const list = [];
   candidatures.forEach(c=>{
     const cur = c.statut||"Nouvelle";
+    const curMsgCount = c.msg_count||0;
     const seen = (c.vus_par||{})[vk];
     if(seen===undefined) {
       list.push({type:"cand", id:c.id, icon:"📨", text:`Nouvelle candidature de ${c.prenom||""} ${c.nom||""}`.trim(), time:c.created_at});
-    } else if(seen!==cur) {
-      list.push({type:"cand", id:c.id, icon:"📨", text:`La candidature de ${c.prenom||""} ${c.nom||""} est passée en ${cur.toLowerCase()}`, time:c.created_at});
+      return;
+    }
+    const seenStatut = (seen && typeof seen==="object") ? seen.statut : seen;
+    const seenMsgCount = (seen && typeof seen==="object") ? (seen.msgCount||0) : 0;
+    const changes = [];
+    if(seenStatut!==cur) changes.push(`est passée en ${cur.toLowerCase()}`);
+    if(curMsgCount>seenMsgCount) changes.push(curMsgCount-seenMsgCount>1 ? "a reçu de nouveaux messages" : "a reçu un nouveau message");
+    if(changes.length) {
+      const nom = `${c.prenom||""} ${c.nom||""}`.trim();
+      list.push({type:"cand", id:c.id, icon:"📨", text:`La candidature de ${nom} ${changes.join(" et ")}`, time:c.created_at});
     }
   });
   absences.forEach(a=>{
@@ -2157,7 +2195,7 @@ async function markOneSeen(type, id) {
     const c = candidatures.find(x=>String(x.id)===String(id));
     if(!c) return;
     const vus = Object.assign({}, c.vus_par||{});
-    vus[vk] = c.statut||"Nouvelle";
+    vus[vk] = { statut: c.statut||"Nouvelle", msgCount: c.msg_count||0 };
     try { await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({vus_par:vus})}); c.vus_par = vus; }
     catch(e) { console.warn("markOneSeen cand error:", e.message); }
   } else if(type==="abs") {
@@ -2921,6 +2959,10 @@ function renderCandStatus(c) {
   const el = document.getElementById("cand-status-content");
   if(!el) return;
   let extra = "";
+  const enAttente = (c.statut==="Nouvelle" || c.statut==="Vue" || !c.statut);
+  if(enAttente) {
+    extra = `<div style="margin-top:14px;font-size:12px;color:var(--text2);background:rgba(41,128,185,0.08);border-left:3px solid var(--blue);padding:8px 12px;border-radius:0 6px 6px 0;">🔔 Pensez à vous reconnecter régulièrement sur le site (avec ce même code PIN) pour suivre l'avancée de votre candidature et voir si le staff vous a répondu.</div>`;
+  }
   if(c.statut==="Refusée") {
     const refuseDate = c.refuse_le ? new Date(c.refuse_le) : null;
     const unlockDate = refuseDate ? new Date(refuseDate.getTime()+7*24*3600*1000) : null;
@@ -2936,6 +2978,12 @@ function renderCandStatus(c) {
       <div style="font-size:12px;color:var(--text2);max-width:420px;margin:0 auto;">${meta.desc}</div>
     </div>
     ${extra}`;
+
+  const inputRow = document.getElementById("cand-chat-input-row");
+  const closedNotice = document.getElementById("cand-chat-closed-notice");
+  const isClosed = c.statut==="Refusée";
+  if(inputRow) inputRow.style.display = isClosed ? "none" : "flex";
+  if(closedNotice) closedNotice.style.display = isClosed ? "block" : "none";
 }
 
 async function refaireCandidature() {
@@ -2975,13 +3023,21 @@ async function sendCandidatMessage() {
   const inp = document.getElementById("cand-chat-input");
   const texte = inp.value.trim();
   if(!texte || !currentCompte || !currentCompte.candidature_id) return;
+  const inputRow = document.getElementById("cand-chat-input-row");
+  if(inputRow && inputRow.style.display==="none") { toast("La messagerie est fermée pour cette candidature.","#E74C3C"); return; }
   try {
     await fetch(SB_URL+"/rest/v1/candidat_messages", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
       body: JSON.stringify({candidature_id:currentCompte.candidature_id, auteur:((currentCompte.prenom||"")+" "+(currentCompte.nom||"")).trim()||"Candidat", is_staff:false, message:texte})
     });
+    try {
+      const rows = await sb(`candidatures?id=eq.${currentCompte.candidature_id}&select=msg_count`);
+      const cur = (rows && rows[0] && rows[0].msg_count) || 0;
+      await sb(`candidatures?id=eq.${currentCompte.candidature_id}`, {method:"PATCH", body:JSON.stringify({msg_count: cur+1})});
+    } catch(e2) { console.warn("msg_count increment failed:", e2.message); }
     inp.value="";
     loadCandidatMessages(currentCompte.candidature_id);
+    sendDiscordWebhook("💬 Nouveau message de candidature", `**${((currentCompte.prenom||"")+" "+(currentCompte.nom||"")).trim()||"Candidat"}** a écrit :\n"${texte}"`, 0x7289DA);
   } catch(e) { toast("Erreur lors de l'envoi du message","#E74C3C"); }
 }
 
@@ -2994,6 +3050,8 @@ async function openCandChat(candidatureId) {
   document.getElementById("cand-chat-modal")?.classList.add("show");
   clearInterval(_candChatPoll);
   _candChatPoll = setInterval(()=>loadStaffChat(candidatureId), 4000);
+  await markOneSeen("cand", candidatureId);
+  updateNotifBadges();
 }
 async function loadStaffChat(candidatureId) {
   try {
@@ -3019,6 +3077,73 @@ async function sendStaffMessage() {
     loadStaffChat(currentCandChatId);
   } catch(e) { toast("Erreur lors de l'envoi du message","#E74C3C"); }
 }
+
+// ─── QUESTIONNAIRE D'ENTRETIEN (Responsable/PDG — jamais exposé au candidat) ──
+let currentEntretienCandidatureId = null;
+let currentEntretienId = null;
+const ENT_FIELDS = ["presentation","motivation","competences","forces","vigilance","notes"];
+async function openEntretien(candidatureId) {
+  currentEntretienCandidatureId = candidatureId;
+  currentEntretienId = null;
+  ["ent-date","ent-presentation","ent-motivation","ent-competences","ent-forces","ent-vigilance","ent-notes"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+  document.getElementById("ent-recommandation").value = "";
+  document.getElementById("ent-meta").textContent = "";
+  try {
+    const rows = await sb(`candidat_entretiens?candidature_id=eq.${candidatureId}&select=*&order=updated_at.desc&limit=1`);
+    const e = rows && rows[0];
+    if(e) {
+      currentEntretienId = e.id;
+      document.getElementById("ent-date").value = e.date_entretien||"";
+      document.getElementById("ent-presentation").value = e.presentation||"";
+      document.getElementById("ent-motivation").value = e.motivation||"";
+      document.getElementById("ent-competences").value = e.competences||"";
+      document.getElementById("ent-forces").value = e.forces||"";
+      document.getElementById("ent-vigilance").value = e.vigilance||"";
+      document.getElementById("ent-recommandation").value = e.recommandation||"";
+      document.getElementById("ent-notes").value = e.notes||"";
+      document.getElementById("ent-meta").textContent = `Dernière mise à jour par ${e.interviewer||"—"} le ${new Date(e.updated_at).toLocaleDateString("fr-FR")}`;
+    }
+  } catch(err) { console.warn("openEntretien load error:", err.message); }
+  document.getElementById("entretien-modal")?.classList.add("show");
+}
+function closeEntretien() {
+  document.getElementById("entretien-modal")?.classList.remove("show");
+  currentEntretienCandidatureId = null;
+  currentEntretienId = null;
+}
+async function enregistrerEntretien() {
+  if(!currentEntretienCandidatureId) return;
+  const payload = {
+    candidature_id: currentEntretienCandidatureId,
+    date_entretien: document.getElementById("ent-date").value||null,
+    interviewer: identityLabel(),
+    presentation: document.getElementById("ent-presentation").value.trim()||null,
+    motivation: document.getElementById("ent-motivation").value.trim()||null,
+    competences: document.getElementById("ent-competences").value.trim()||null,
+    forces: document.getElementById("ent-forces").value.trim()||null,
+    vigilance: document.getElementById("ent-vigilance").value.trim()||null,
+    recommandation: document.getElementById("ent-recommandation").value||null,
+    notes: document.getElementById("ent-notes").value.trim()||null,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    let r;
+    if(currentEntretienId) {
+      r = await fetch(SB_URL+"/rest/v1/candidat_entretiens?id=eq."+currentEntretienId, {
+        method:"PATCH", headers:{...H,"Prefer":"return=minimal"}, mode:"cors", body:JSON.stringify(payload)
+      });
+    } else {
+      r = await fetch(SB_URL+"/rest/v1/candidat_entretiens", {
+        method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors", body:JSON.stringify(payload)
+      });
+    }
+    if(!r.ok) throw new Error(await r.text());
+    logActivity("entretien_maj", "Questionnaire d'entretien mis à jour pour une candidature");
+    toast("✓ Questionnaire d'entretien enregistré");
+    closeEntretien();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
 
 
 
@@ -3194,6 +3319,7 @@ function renderCandidatures() {
         <span class="cand-statut-badge ${CSTAT[c.statut]||"csb-new"}">${c.statut||"Nouvelle"}</span>
         <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="cand-statut-btn" style="background:rgba(114,137,218,0.12);color:#7289DA;border:1px solid rgba(114,137,218,0.3);" onclick="openCandChat('${c.id}')">💬 Discuter</button>
+          <button class="cand-statut-btn" style="background:rgba(155,89,182,0.12);color:#C8A0E8;border:1px solid rgba(155,89,182,0.3);" onclick="openEntretien('${c.id}')">📋 Entretien</button>
           ${c.statut!=="Vue"     ?`<button class="cand-statut-btn csb-vue"    onclick="updateCand('${c.id}','Vue')">👁 Vue</button>`:""}
           ${c.statut!=="Retenu"  ?`<button class="cand-statut-btn csb-retenu" onclick="updateCand('${c.id}','Retenu')">✓ Retenir</button>`:""}
           ${c.statut!=="Refusée" ?`<button class="cand-statut-btn csb-refuse" onclick="updateCand('${c.id}','Refusée')">✕ Refuser</button>`:""}
