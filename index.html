@@ -1703,12 +1703,13 @@ function renderDocHistory(elId, rows) {
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${isIncident?`<button class="btn btn-primary btn-sm" onclick="openIncidentDetail('${r.id}')">🔍 Détail / Suivi</button>`:""}
         <button class="btn btn-ghost btn-sm" onclick="reprintDoc('${r.id}')">👁 Revoir</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteDocument('${r.id}','${scope}')">🗑</button>
+        ${(!isIncident || role==="responsable" || role==="pdg" || role==="admin") ? `<button class="btn btn-danger btn-sm" onclick="deleteDocument('${r.id}','${scope}')">🗑</button>` : ""}
       </div>
     </div>`;
   }).join("");
 }
 async function deleteDocument(id, scope) {
+  if(scope==="incident" && role==="agent") { toast("Seuls Responsable, PDG et Admin peuvent supprimer un rapport d'incident.","#E74C3C"); return; }
   if(!confirm("Supprimer définitivement ce document ?")) return;
   try {
     await sb(`documents?id=eq.${id}`, {method:"DELETE"});
