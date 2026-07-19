@@ -540,8 +540,8 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   <!-- PAGE CANDIDATURES (formulaire) -->
   <div class="page" id="page-candidature-form">
     <div class="page-title">Candidater au <span>service</span></div>
-    <div class="page-sub">Remplissez ce formulaire pour soumettre votre candidature au Service Sécurité de la Dog Compagnie.</div>
-    <div class="card candidature-form">
+    <div class="page-sub" id="cand-space-sub">Remplissez ce formulaire pour soumettre votre candidature au Service Sécurité de la Dog Compagnie.</div>
+    <div class="card candidature-form" id="cand-space-form">
       <div class="card-hdr"><div class="card-hdr-title">📝 Formulaire de candidature</div></div>
       <div class="card-body">
         <div class="field-row-2">
@@ -576,7 +576,25 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
         </button>
       </div>
     </div>
+
+    <div id="cand-space-status" style="display:none;max-width:620px;">
+      <div class="card">
+        <div class="card-hdr"><div class="card-hdr-title">📋 Ma candidature</div></div>
+        <div class="card-body" id="cand-status-content"><div class="empty"><p>Chargement…</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-hdr-title">💬 Échanger avec le Responsable / PDG</div></div>
+        <div class="card-body">
+          <div id="cand-chat-thread" style="max-height:320px;overflow-y:auto;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input id="cand-chat-input" placeholder="Écrivez un message…" style="flex:1;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.25);border-radius:8px;color:#fff;font-size:13px;padding:9px 12px;" onkeydown="if(event.key==='Enter')sendCandidatMessage()">
+            <button class="btn btn-primary" onclick="sendCandidatMessage()">Envoyer</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
+
 
   <!-- PAGE MON SERVICE (agent) -->
   <div class="page" id="page-mon-service">
@@ -984,6 +1002,19 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   </div>
 </div>
 
+<!-- ═══ MESSAGERIE AVEC UN CANDIDAT (Responsable/PDG) ═══ -->
+<div id="cand-chat-modal" class="alert-popup">
+  <div class="alert-popup-box" style="max-width:560px;max-height:85vh;overflow-y:auto;text-align:left;">
+    <div class="alert-popup-title" style="text-align:center;">💬 Échange avec le candidat</div>
+    <div id="staff-chat-thread" style="max-height:320px;overflow-y:auto;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="staff-chat-input" placeholder="Répondre au candidat…" style="flex:1;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.25);border-radius:8px;color:#fff;font-size:13px;padding:9px 12px;" onkeydown="if(event.key==='Enter')sendStaffMessage()">
+      <button class="btn btn-primary" onclick="sendStaffMessage()">Envoyer</button>
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="closeCandChat()" style="margin-top:12px;">Fermer</button>
+  </div>
+</div>
+
 <script>
 const SB_URL = "https://mrcbbkthunfrijpmbqak.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY2Jia3RodW5mcmlqcG1icWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDI0MjEsImV4cCI6MjA5OTYxODQyMX0.6GNyG8oK2cMV4v5qDiEhACZQ3WI69tPJ_cRlpCjcDHg";
@@ -1024,6 +1055,7 @@ const JOURNAL_TYPES = {
   candidature_nouvelle: {color:"#5DADE2", label:"Candidature"},
   candidature_statut:   {color:"#C8A0E8", label:"Candidature"},
   candidature_suppr:    {color:"#F08080", label:"Candidature"},
+  candidat_promu:       {color:"#52D98B", label:"Candidature"},
   absence_nouvelle:     {color:"#F0A840", label:"Absence"},
   absence_statut:       {color:"#F0A840", label:"Absence"},
   absence_suppr:        {color:"#F08080", label:"Absence"},
@@ -1902,9 +1934,7 @@ function selectRole(r) {
   document.querySelectorAll(".role-btn").forEach(b=>b.classList.remove("selected"));
   document.getElementById("role-"+r)?.classList.add("selected");
   role = r;
-  if(r==="candidat") {
-    launchApp();
-  } else if(r==="individuel") {
+  if(r==="individuel") {
     document.getElementById("login-step1").style.display="none";
     document.getElementById("login-step2").style.display="block";
     document.getElementById("login-role-label").textContent = "Entrez votre PIN personnel";
@@ -1914,7 +1944,9 @@ function selectRole(r) {
   } else {
     document.getElementById("login-step1").style.display="none";
     document.getElementById("login-step2").style.display="block";
-    document.getElementById("login-role-label").textContent = "Espace : " + ROLE_LABELS[r];
+    document.getElementById("login-role-label").textContent = r==="candidat"
+      ? "Entrez votre code PIN — ou choisissez-en un si c'est votre première visite"
+      : "Espace : " + ROLE_LABELS[r];
     document.getElementById("pin-input").value="";
     document.getElementById("pin-error").style.display="none";
     setTimeout(()=>document.getElementById("pin-input").focus(), 100);
@@ -1997,6 +2029,7 @@ function goPage(pageId) {
     if(nomEl && !nomEl.value && currentAgent) nomEl.value = currentAgent.prenom+" "+currentAgent.nom;
     renderMesAbsences();
   }
+  if(pageId==="candidature-form" && role==="candidat") initCandidatSpace();
   if(pageId==="candidatures")      renderCandidatures();
 }
 
@@ -2354,7 +2387,12 @@ function finishLaunch() {
 
   clearInterval(_refreshInterval); _refreshInterval=null;
   if(role==="candidat") {
-    _refreshInterval = setInterval(checkMaintenanceGate, 15000);
+    _refreshInterval = setInterval(()=>{
+      checkMaintenanceGate();
+      if(currentCompte && currentCompte.candidature_id && document.getElementById("page-candidature-form")?.classList.contains("active")) {
+        initCandidatSpace();
+      }
+    }, 15000);
   } else {
     loadAll();
     _refreshInterval = setInterval(loadAll, 15000);
@@ -2367,7 +2405,7 @@ async function launchApp() {
 
   const topbarRole = document.getElementById("topbar-role");
   if(topbarRole) {
-    const who = currentCompte ? " — "+currentCompte.prenom+" "+currentCompte.nom : "";
+    const who = (currentCompte && currentCompte.prenom) ? " — "+currentCompte.prenom+" "+currentCompte.nom : "";
     topbarRole.textContent = specialRoleLabel() + who;
     topbarRole.style.background = ROLE_COLORS[role]||"rgba(255,255,255,0.08)";
     topbarRole.style.color = ROLE_TEXT[role]||"#fff";
@@ -2423,8 +2461,35 @@ async function confirmLogin() {
       err.textContent="Erreur de connexion : "+e.message;
       err.style.display="block";
     }
+  } else if(role==="candidat") {
+    // Compte candidat auto-créé au premier PIN saisi, ou reconnexion si déjà existant
+    if(!pin || pin.length<4) {
+      err.textContent="Choisissez un code PIN d'au moins 4 chiffres.";
+      err.style.display="block";
+      return;
+    }
+    try {
+      const r = await fetch(SB_URL+"/rest/v1/candidats_comptes?pin=eq."+encodeURIComponent(pin)+"&select=*", {headers:H, mode:"cors"});
+      const data = await r.json();
+      if(data && data.length) {
+        currentCompte = data[0];
+      } else {
+        const cr = await fetch(SB_URL+"/rest/v1/candidats_comptes", {
+          method:"POST", headers:{...H,"Prefer":"return=representation"}, mode:"cors",
+          body: JSON.stringify({pin})
+        });
+        if(!cr.ok) throw new Error(await cr.text());
+        const created = await cr.json();
+        currentCompte = created[0];
+      }
+      currentAgent = null;
+      launchApp();
+    } catch(e) {
+      err.textContent="Erreur de connexion : "+e.message;
+      err.style.display="block";
+    }
   } else {
-    // Admin et Candidat — PIN fixe (ou aucun)
+    // Admin — PIN fixe
     if(PINS[role] && pin !== PINS[role]) {
       err.textContent="Code PIN incorrect. Réessayez.";
       err.style.display="block";
@@ -2788,10 +2853,12 @@ async function soumettreCandidat() {
     };
     const r=await fetch(SB_URL+"/rest/v1/candidatures",{
       method:"POST",
-      headers:{...H,"Prefer":"return=minimal"},
+      headers:{...H,"Prefer":"return=representation"},
       body:JSON.stringify(payload)
     });
     if(!r.ok){const txt=await r.text();throw new Error(txt);}
+    const created = await r.json();
+    const newId = created && created[0] && created[0].id;
     toast("✓ Candidature envoyée ! Nous reviendrons vers vous.");
     ["cand-prenom","cand-nom","cand-age","cand-tel","cand-email","cand-discord","cand-dispo","cand-motiv"].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value="";
@@ -2801,12 +2868,150 @@ async function soumettreCandidat() {
     logActivity("candidature_nouvelle", `Nouvelle candidature de ${prenom} ${nom}`, `${prenom} ${nom} (candidat)`);
     sendDiscordWebhook("📨 Nouvelle candidature", `**${prenom} ${nom}**\nDiscord : ${discord}${payload.age?"\nÂge : "+payload.age+" ans":""}`, 0x5DADE2);
     syncBadge("✓ Envoyé","#4A7F5E");
+    if(role==="candidat" && currentCompte && newId) {
+      await sb(`candidats_comptes?id=eq.${currentCompte.id}`, {method:"PATCH", body:JSON.stringify({prenom, nom, candidature_id:newId})});
+      currentCompte.prenom = prenom; currentCompte.nom = nom; currentCompte.candidature_id = newId;
+      initCandidatSpace();
+    }
   } catch(e){
     console.error("Erreur candidature:",e);
     toast("Erreur lors de l'envoi : "+e.message,"#E74C3C");
     syncBadge("⚠ Erreur","#E74C3C");
   }
 }
+
+// ─── ESPACE CANDIDAT (suivi + messagerie) ───────────────────────────
+const CAND_STATUT_DISPLAY = {
+  Nouvelle: {label:"En attente", color:"#F0A840", desc:"Votre candidature a été reçue et sera bientôt étudiée."},
+  Vue:      {label:"En cours d'étude", color:"#5DADE2", desc:"Votre candidature est en cours d'étude par notre équipe."},
+  Retenu:   {label:"Retenue !", color:"#52D98B", desc:"Félicitations, votre candidature a été retenue ! Connectez-vous désormais avec le bouton « Agent de sécurité », en utilisant ce même code PIN."},
+  Refusée:  {label:"Refusée", color:"#F08080", desc:"Votre candidature n'a malheureusement pas été retenue cette fois-ci."},
+};
+
+async function initCandidatSpace() {
+  if(!currentCompte) return;
+  const subEl = document.getElementById("cand-space-sub");
+  const formEl = document.getElementById("cand-space-form");
+  const statusEl = document.getElementById("cand-space-status");
+  if(!currentCompte.candidature_id) {
+    if(formEl) formEl.style.display = "block";
+    if(statusEl) statusEl.style.display = "none";
+    if(subEl) subEl.textContent = "Remplissez ce formulaire pour soumettre votre candidature au Service Sécurité de la Dog Compagnie.";
+    return;
+  }
+  if(formEl) formEl.style.display = "none";
+  if(statusEl) statusEl.style.display = "block";
+  if(subEl) subEl.textContent = "Suivez l'avancée de votre candidature et échangez avec le staff.";
+  try {
+    const rows = await sb(`candidatures?id=eq.${currentCompte.candidature_id}&select=*`);
+    const c = rows && rows[0];
+    if(!c) { document.getElementById("cand-status-content").innerHTML = '<div class="empty"><p>Candidature introuvable.</p></div>'; return; }
+    renderCandStatus(c);
+    loadCandidatMessages(c.id);
+  } catch(e) { console.warn("initCandidatSpace error:", e.message); }
+}
+
+function renderCandStatus(c) {
+  const meta = CAND_STATUT_DISPLAY[c.statut] || CAND_STATUT_DISPLAY.Nouvelle;
+  const el = document.getElementById("cand-status-content");
+  if(!el) return;
+  let extra = "";
+  if(c.statut==="Refusée") {
+    const refuseDate = c.refuse_le ? new Date(c.refuse_le) : null;
+    const unlockDate = refuseDate ? new Date(refuseDate.getTime()+7*24*3600*1000) : null;
+    if(unlockDate && new Date() < unlockDate) {
+      extra = `<div style="margin-top:14px;font-size:12px;color:var(--text2);text-align:center;">Vous pourrez soumettre une nouvelle candidature à partir du <strong>${unlockDate.toLocaleDateString("fr-FR")}</strong>.</div>`;
+    } else {
+      extra = `<button class="btn btn-primary btn-full" style="margin-top:16px;" onclick="refaireCandidature()">🔄 Refaire une candidature</button>`;
+    }
+  }
+  el.innerHTML = `
+    <div style="text-align:center;padding:10px 0;">
+      <div style="font-size:16px;font-weight:800;color:${meta.color};margin-bottom:8px;">${meta.label}</div>
+      <div style="font-size:12px;color:var(--text2);max-width:420px;margin:0 auto;">${meta.desc}</div>
+    </div>
+    ${extra}`;
+}
+
+async function refaireCandidature() {
+  try {
+    await sb(`candidats_comptes?id=eq.${currentCompte.id}`, {method:"PATCH", body:JSON.stringify({candidature_id:null})});
+    currentCompte.candidature_id = null;
+    toast("✓ Vous pouvez soumettre une nouvelle candidature");
+    initCandidatSpace();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+function renderChatThread(elId, msgs) {
+  const el = document.getElementById(elId);
+  if(!el) return;
+  if(!msgs.length) { el.innerHTML = '<div class="empty"><p>Aucun message pour le moment.</p></div>'; return; }
+  el.innerHTML = msgs.map(m=>{
+    const time = new Date(m.created_at).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+    const align = m.is_staff ? "flex-start" : "flex-end";
+    const bg = m.is_staff ? "rgba(41,128,185,0.15)" : "rgba(30,132,73,0.15)";
+    return `<div style="display:flex;justify-content:${align};margin-bottom:8px;">
+      <div style="max-width:80%;background:${bg};border-radius:10px;padding:8px 12px;">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;">${esc(m.auteur)}${m.auteur_role?" · "+esc(m.auteur_role):""} · ${time}</div>
+        <div style="font-size:13px;color:var(--text);white-space:pre-wrap;">${esc(m.message)}</div>
+      </div>
+    </div>`;
+  }).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+async function loadCandidatMessages(candidatureId) {
+  try {
+    const msgs = await sb(`candidat_messages?candidature_id=eq.${candidatureId}&select=*&order=created_at.asc`);
+    renderChatThread("cand-chat-thread", msgs||[]);
+  } catch(e) { console.warn("loadCandidatMessages error:", e.message); }
+}
+async function sendCandidatMessage() {
+  const inp = document.getElementById("cand-chat-input");
+  const texte = inp.value.trim();
+  if(!texte || !currentCompte || !currentCompte.candidature_id) return;
+  try {
+    await fetch(SB_URL+"/rest/v1/candidat_messages", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({candidature_id:currentCompte.candidature_id, auteur:((currentCompte.prenom||"")+" "+(currentCompte.nom||"")).trim()||"Candidat", is_staff:false, message:texte})
+    });
+    inp.value="";
+    loadCandidatMessages(currentCompte.candidature_id);
+  } catch(e) { toast("Erreur lors de l'envoi du message","#E74C3C"); }
+}
+
+// ─── MESSAGERIE CÔTÉ STAFF (Responsable/PDG) ────────────────────────
+let currentCandChatId = null;
+async function openCandChat(candidatureId) {
+  currentCandChatId = candidatureId;
+  await loadStaffChat(candidatureId);
+  document.getElementById("cand-chat-modal")?.classList.add("show");
+}
+async function loadStaffChat(candidatureId) {
+  try {
+    const msgs = await sb(`candidat_messages?candidature_id=eq.${candidatureId}&select=*&order=created_at.asc`);
+    renderChatThread("staff-chat-thread", msgs||[]);
+  } catch(e) { console.warn("loadStaffChat error:", e.message); }
+}
+function closeCandChat() {
+  document.getElementById("cand-chat-modal")?.classList.remove("show");
+  currentCandChatId = null;
+}
+async function sendStaffMessage() {
+  const inp = document.getElementById("staff-chat-input");
+  const texte = inp.value.trim();
+  if(!texte || !currentCandChatId) return;
+  try {
+    await fetch(SB_URL+"/rest/v1/candidat_messages", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({candidature_id:currentCandChatId, auteur:identityLabel(), auteur_role:specialRoleLabel(), is_staff:true, message:texte})
+    });
+    inp.value="";
+    loadStaffChat(currentCandChatId);
+  } catch(e) { toast("Erreur lors de l'envoi du message","#E74C3C"); }
+}
+
+
 
 
 async function soumettreAbsence() {
@@ -2979,6 +3184,7 @@ function renderCandidatures() {
       <div class="cand-statut-btns">
         <span class="cand-statut-badge ${CSTAT[c.statut]||"csb-new"}">${c.statut||"Nouvelle"}</span>
         <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="cand-statut-btn" style="background:rgba(114,137,218,0.12);color:#7289DA;border:1px solid rgba(114,137,218,0.3);" onclick="openCandChat('${c.id}')">💬 Discuter</button>
           ${c.statut!=="Vue"     ?`<button class="cand-statut-btn csb-vue"    onclick="updateCand('${c.id}','Vue')">👁 Vue</button>`:""}
           ${c.statut!=="Retenu"  ?`<button class="cand-statut-btn csb-retenu" onclick="updateCand('${c.id}','Retenu')">✓ Retenir</button>`:""}
           ${c.statut!=="Refusée" ?`<button class="cand-statut-btn csb-refuse" onclick="updateCand('${c.id}','Refusée')">✕ Refuser</button>`:""}
@@ -2991,8 +3197,39 @@ function renderCandidatures() {
 
 async function updateCand(id, statut) {
   const c = candidatures.find(x=>String(x.id)===String(id));
-  try{await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({statut,lu:true})}); if(c) logActivity("candidature_statut", `La candidature de ${c.prenom} ${c.nom} est passée en ${statut.toLowerCase()}`); await loadAll();}
+  try{
+    const payload = {statut, lu:true};
+    if(statut==="Refusée") payload.refuse_le = new Date().toISOString();
+    await sb(`candidatures?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(payload)});
+    if(c) logActivity("candidature_statut", `La candidature de ${c.prenom} ${c.nom} est passée en ${statut.toLowerCase()}`);
+    if(statut==="Retenu" && c) await promouvoirCandidat(c);
+    await loadAll();
+  }
   catch(e){toast("Erreur","#E74C3C");}
+}
+
+async function promouvoirCandidat(c) {
+  try {
+    const rows = await sb(`candidats_comptes?candidature_id=eq.${c.id}&select=*`);
+    const compte = rows && rows[0];
+    if(!compte || compte.promu) return;
+    const conflict = await sb(`agents_comptes?pin=eq.${encodeURIComponent(compte.pin)}&select=id`);
+    if(conflict && conflict.length) {
+      toast("⚠ Compte candidat trouvé mais ce PIN existe déjà côté Agents — créez son compte manuellement.","#E74C3C");
+      return;
+    }
+    const r = await fetch(SB_URL+"/rest/v1/agents_comptes", {
+      method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+      body: JSON.stringify({prenom:compte.prenom||c.prenom, nom:compte.nom||c.nom, pin:compte.pin, role:"agent"})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    await sb(`candidats_comptes?id=eq.${compte.id}`, {method:"PATCH", body:JSON.stringify({promu:true})});
+    logActivity("candidat_promu", `${c.prenom} ${c.nom} a été promu Agent de sécurité (compte créé automatiquement avec le même PIN)`);
+    toast("✓ Compte Agent créé automatiquement pour "+c.prenom+" "+c.nom);
+  } catch(e) {
+    console.warn("promouvoirCandidat error:", e.message);
+    toast("Erreur lors de la création automatique du compte Agent : "+e.message,"#E74C3C");
+  }
 }
 async function suppCand(id) {
   if(!confirm("Supprimer cette candidature définitivement ?")) return;
