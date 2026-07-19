@@ -2145,7 +2145,10 @@ async function fetchMaintenanceStatus() {
     const rows = await sb("maintenance_mode?select=*&order=updated_at.desc&limit=1");
     const r = (rows && rows[0]) || {pages:[], message:null};
     return { pages: r.pages||[], message: r.message||"" };
-  } catch(e) { return { pages:[], message:"" }; }
+  } catch(e) {
+    console.warn("fetchMaintenanceStatus failed (keeping last known state):", e.message);
+    return { pages: maintenancePages, message: maintenanceMessage };
+  }
 }
 
 function showMaintenanceScreen(message) {
@@ -2382,18 +2385,18 @@ async function loadAll() {
   syncBadge("⏳ Synchro…","#5D8AA8");
   try {
     // Load each table independently so one failure does not block others
-    const tryLoad = async (path) => {
+    const tryLoad = async (path, fallback) => {
       try { const r = await sb(path); return r||[]; }
-      catch(e) { console.warn("Load failed:", path, e.message); return []; }
+      catch(e) { console.warn("Load failed (keeping last known data):", path, e.message); return fallback; }
     };
     const [p,a,c,ag,al,inc,ev] = await Promise.all([
-      tryLoad("patrouilles_live?select=*&order=patrol_id"),
-      tryLoad("absences?select=*&order=created_at.desc"),
-      tryLoad("candidatures?select=*&order=created_at.desc"),
-      tryLoad("agents_liste?select=nom&order=nom"),
-      tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1"),
-      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,statut_changed_at,suivi,created_at&type=eq.incident&order=created_at.desc&limit=100"),
-      tryLoad("evaluations?select=id,agent_nom,verdict,pourcentage,vus_par,created_at&order=created_at.desc&limit=100"),
+      tryLoad("patrouilles_live?select=*&order=patrol_id", patrols),
+      tryLoad("absences?select=*&order=created_at.desc", absences),
+      tryLoad("candidatures?select=*&order=created_at.desc", candidatures),
+      tryLoad("agents_liste?select=nom&order=nom", agents.map(nom=>({nom}))),
+      tryLoad("alertes?select=*&actif=eq.true&order=created_at.desc&limit=1", []),
+      tryLoad("documents?select=id,reference,agent_nom,data,auteur,vus_par,statut,statut_changed_at,suivi,created_at&type=eq.incident&order=created_at.desc&limit=100", incidentDocs),
+      tryLoad("evaluations?select=id,agent_nom,verdict,pourcentage,vus_par,created_at&order=created_at.desc&limit=100", evalsForNotif),
     ]);
     patrols      = p;
     absences     = a;
