@@ -690,6 +690,21 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
     <div class="page-sub">Historique complet des actions : candidatures, absences, patrouilles, comptes.</div>
 
     <div class="card" style="max-width:620px;">
+      <div class="card-hdr"><div class="card-hdr-title">🔗 Webhook Discord</div></div>
+      <div class="card-body">
+        <div class="page-sub" style="margin-bottom:14px;">Envoie automatiquement un message dans un salon Discord lors d'une nouvelle candidature, d'une absence déclarée, d'une demande de correction de prise de service, ou d'un rapport d'incident. ⚠️ Ce lien est visible par quiconque inspecte le code du site — ne le partagez jamais, et régénérez-le dans Discord en cas de doute sur un usage abusif.</div>
+        <div class="field">
+          <label>URL du webhook</label>
+          <input id="discord-webhook-input" placeholder="https://discord.com/api/webhooks/…">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="enregistrerWebhookDiscord()">💾 Enregistrer</button>
+          <button class="btn btn-ghost" onclick="testerWebhookDiscord()">📨 Envoyer un test</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:620px;">
       <div class="card-hdr">
         <div class="card-hdr-title">🚧 Mode maintenance</div>
         <span id="maint-status-badge" style="font-size:11px;color:var(--text2);"></span>
@@ -1027,6 +1042,7 @@ const JOURNAL_TYPES = {
   alerte_envoyee:        {color:"#D35400", label:"Alerte"},
   maintenance_on:        {color:"#C0392B", label:"Alerte"},
   maintenance_off:       {color:"#52D98B", label:"Alerte"},
+  webhook_maj:           {color:"#7289DA", label:"Alerte"},
   evaluation_creee:      {color:"#9B59B6", label:"Évaluation"},
   evaluation_supprimee:  {color:"#F08080", label:"Évaluation"},
   document_cree:         {color:"#1F4E7B", label:"Document"},
@@ -1051,6 +1067,50 @@ async function logActivity(type, message, acteur) {
       body: JSON.stringify({type, message, acteur: acteur || currentActeurLabel()})
     });
   } catch(e) { console.warn("logActivity error:", e.message); }
+}
+
+// ─── WEBHOOK DISCORD (Admin) ─────────────────────────────────────────
+let discordWebhookUrl = "";
+async function loadDiscordWebhook() {
+  try {
+    const rows = await sb("site_config?select=*&cle=eq.discord_webhook&limit=1");
+    discordWebhookUrl = (rows && rows[0] && rows[0].valeur) || "";
+    const inp = document.getElementById("discord-webhook-input");
+    if(inp) inp.value = discordWebhookUrl;
+  } catch(e) { console.warn("loadDiscordWebhook error:", e.message); }
+}
+async function enregistrerWebhookDiscord() {
+  const url = document.getElementById("discord-webhook-input").value.trim();
+  try {
+    const existing = await sb("site_config?select=id&cle=eq.discord_webhook&limit=1");
+    if(existing && existing.length) {
+      await sb(`site_config?id=eq.${existing[0].id}`, {method:"PATCH", body:JSON.stringify({valeur:url||null})});
+    } else {
+      const r = await fetch(SB_URL+"/rest/v1/site_config", {
+        method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
+        body: JSON.stringify({cle:"discord_webhook", valeur:url||null})
+      });
+      if(!r.ok) throw new Error(await r.text());
+    }
+    discordWebhookUrl = url;
+    logActivity("webhook_maj", url ? "URL du webhook Discord mise à jour" : "Webhook Discord désactivé");
+    toast(url ? "✓ Webhook Discord enregistré" : "✓ Webhook Discord désactivé");
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function testerWebhookDiscord() {
+  if(!discordWebhookUrl) { toast("Aucun webhook enregistré.","#E74C3C"); return; }
+  await sendDiscordWebhook("🔔 Test", "Ceci est un message de test envoyé depuis Dog Sécurité.", 0x2980B9);
+  toast("✓ Message de test envoyé (vérifiez le salon Discord)");
+}
+async function sendDiscordWebhook(title, description, color) {
+  if(!discordWebhookUrl) return;
+  try {
+    await fetch(discordWebhookUrl, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ embeds:[{ title, description, color, timestamp:new Date().toISOString() }] })
+    });
+  } catch(e) { console.warn("sendDiscordWebhook error:", e.message); }
 }
 
 // ─── ALERTE DIFFUSÉE (Admin) ────────────────────────────────────────
@@ -1565,6 +1625,9 @@ async function enregistrerDoc(formKind) {
     });
     if(!r.ok) throw new Error(await r.text());
     logActivity("document_cree", `${DOC_LABEL[data.type]} créé${data.agentNom?" pour "+data.agentNom:""} (réf. ${ref})`);
+    if(data.type==="incident") {
+      sendDiscordWebhook("🚨 Nouveau rapport d'incident", `**${ref}**\nLieu : ${data.lieu||"—"}\nDate : ${data.dateDoc?new Date(data.dateDoc+"T12:00:00").toLocaleDateString("fr-FR"):"—"}${data.heure?" à "+data.heure:""}\nPar : ${identityLabel()}`, 0xC0392B);
+    }
     toast("✓ Document enregistré : "+ref);
     if(formKind==="incident") loadDocHistory("incident"); else loadDocHistory("rh");
   } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
@@ -1923,7 +1986,7 @@ function goPage(pageId) {
   if(pageId==="logs-service")      loadLogs();
   if(pageId==="admin-comptes")     loadComptes();
   if(pageId==="hierarchie")        loadHierarchie();
-  if(pageId==="journal")           { loadJournal(); refreshMaintStatusBadge(); }
+  if(pageId==="journal")           { loadJournal(); refreshMaintStatusBadge(); loadDiscordWebhook(); }
   if(pageId==="evaluations")       loadEvaluations();
   if(pageId==="doc-rh")            { setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh"); }
   if(pageId==="incident")          { prefillDocDates(); loadDocHistory("incident"); }
@@ -2311,6 +2374,8 @@ async function launchApp() {
 
   const bell = document.getElementById("notif-bell");
   if(bell) bell.style.display = (role==="responsable"||role==="pdg"||role==="admin") ? "flex" : "none";
+
+  loadDiscordWebhook();
 
   if(!isMaintenanceExempt()) {
     const blocked = await checkMaintenanceGate();
@@ -2733,6 +2798,7 @@ async function soumettreCandidat() {
     ynState={};
     document.querySelectorAll(".yn-btn").forEach(b=>b.classList.remove("active"));
     logActivity("candidature_nouvelle", `Nouvelle candidature de ${prenom} ${nom}`, `${prenom} ${nom} (candidat)`);
+    sendDiscordWebhook("📨 Nouvelle candidature", `**${prenom} ${nom}**\nDiscord : ${discord}${payload.age?"\nÂge : "+payload.age+" ans":""}`, 0x5DADE2);
     syncBadge("✓ Envoyé","#4A7F5E");
   } catch(e){
     console.error("Erreur candidature:",e);
@@ -2769,6 +2835,7 @@ async function soumettreAbsence() {
     document.getElementById("abs-motif").value="";
     syncBadge("✓ Envoyé","#4A7F5E");
     logActivity("absence_nouvelle", `Nouvelle absence déclarée par ${nom}`, currentAgent ? currentActeurLabel() : nom);
+    sendDiscordWebhook("📅 Nouvelle absence déclarée", `**${nom}**\nDu ${new Date(debut+"T12:00:00").toLocaleDateString("fr-FR")} au ${new Date(fin+"T12:00:00").toLocaleDateString("fr-FR")}\nMotif : ${motif}`, 0xF0A840);
     await loadAll();
   } catch(e){
     console.error("Erreur absence:",e);
@@ -3104,6 +3171,7 @@ async function submitDebutRequest(id) {
   try {
     await sb(`services_logs?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({debut_demande:proposed.toISOString(),debut_statut:"En attente"})});
     logActivity("service_debut_demande", `${log.agent_nom} a demandé une correction de sa prise de service`);
+    sendDiscordWebhook("🕐 Demande de correction de prise de service", `**${log.agent_nom}** demande une correction : ${new Date(log.debut).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} → ${proposed.toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}`, 0xF0A840);
     toast("✓ Demande envoyée, en attente de validation par le Responsable/PDG");
     _editingDebutId = null;
     initServicePage();
