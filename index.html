@@ -2472,6 +2472,11 @@ async function confirmLogin() {
       const r = await fetch(SB_URL+"/rest/v1/candidats_comptes?pin=eq."+encodeURIComponent(pin)+"&select=*", {headers:H, mode:"cors"});
       const data = await r.json();
       if(data && data.length) {
+        if(data[0].promu) {
+          err.textContent="Votre candidature a été retenue ! Connectez-vous désormais avec le bouton « Agent de sécurité », en utilisant ce même code PIN.";
+          err.style.display="block";
+          return;
+        }
         currentCompte = data[0];
       } else {
         const cr = await fetch(SB_URL+"/rest/v1/candidats_comptes", {
@@ -2982,10 +2987,13 @@ async function sendCandidatMessage() {
 
 // ─── MESSAGERIE CÔTÉ STAFF (Responsable/PDG) ────────────────────────
 let currentCandChatId = null;
+let _candChatPoll = null;
 async function openCandChat(candidatureId) {
   currentCandChatId = candidatureId;
   await loadStaffChat(candidatureId);
   document.getElementById("cand-chat-modal")?.classList.add("show");
+  clearInterval(_candChatPoll);
+  _candChatPoll = setInterval(()=>loadStaffChat(candidatureId), 4000);
 }
 async function loadStaffChat(candidatureId) {
   try {
@@ -2996,6 +3004,7 @@ async function loadStaffChat(candidatureId) {
 function closeCandChat() {
   document.getElementById("cand-chat-modal")?.classList.remove("show");
   currentCandChatId = null;
+  clearInterval(_candChatPoll); _candChatPoll = null;
 }
 async function sendStaffMessage() {
   const inp = document.getElementById("staff-chat-input");
