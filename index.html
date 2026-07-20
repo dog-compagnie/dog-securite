@@ -703,6 +703,103 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
   </div>
 
   <!-- PAGE JOURNAL D'ACTIVITÉ (Admin uniquement) -->
+  <div class="page" id="page-devis">
+    <div class="page-title">Devis <span>clients</span></div>
+    <div class="page-sub">Créez et générez des devis de prestation pour vos clients.</div>
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+      <div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">🏢 Informations émetteur</div></div>
+          <div class="card-body">
+            <div class="field-row-2">
+              <div class="field"><label>Société</label><input id="devis-em-societe" value="Dog Compagnie"></div>
+              <div class="field"><label>Adresse</label><input id="devis-em-adresse" value="33 rue du général de gaulle, Perrytonia"></div>
+            </div>
+            <div class="field-row-2">
+              <div class="field"><label>Téléphone</label><input id="devis-em-tel" value="06.21.17.15.53"></div>
+              <div class="field"><label>Email</label><input id="devis-em-email" value="dog-compagnie237@a4l.pro"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">👤 Client</div></div>
+          <div class="card-body">
+            <div class="field-row-2">
+              <div class="field"><label>Nom / Société *</label><input id="devis-cl-nom" placeholder="Ex : Midnight Event's"></div>
+              <div class="field"><label>Adresse</label><input id="devis-cl-adresse" placeholder="Non communiqué"></div>
+            </div>
+            <div class="field-row-2">
+              <div class="field"><label>Téléphone</label><input id="devis-cl-tel" placeholder="Non communiqué"></div>
+              <div class="field"><label>Email</label><input id="devis-cl-email" placeholder="Non communiqué"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">🧾 Informations du devis</div></div>
+          <div class="card-body">
+            <div class="field-row-3">
+              <div class="field"><label>Date du devis</label><input id="devis-date" type="date"></div>
+              <div class="field"><label>Numéro de devis</label><input id="devis-numero" disabled></div>
+              <div class="field"><label>Date événement</label><input id="devis-date-evt" type="date"></div>
+            </div>
+            <div class="field"><label>Objet / Description de l'événement</label><input id="devis-objet" placeholder="Ex : Sécurisation concert, soirée privée…"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-hdr-title">🛡 Prestations</div>
+            <button class="btn btn-ghost btn-sm" onclick="ajouterLigneDevis()">+ Ajouter une ligne</button>
+          </div>
+          <div class="card-body" id="devis-lignes-container"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">📄 Conditions générales</div></div>
+          <div class="card-body">
+            <div class="field"><label>Validité du devis</label><input id="devis-validite" value="30 jours à compter de la date d'émission."></div>
+            <div class="field"><label>Délai de réalisation</label><input id="devis-delai" value="Le jour de l'événement."></div>
+            <div class="field"><label>Modalités de paiement</label><input id="devis-modalites" value="Solde à la livraison de la prestation."></div>
+            <div class="field"><label>Mode de paiement accepté</label><input id="devis-mode-paiement" value="Virement bancaire / Facture."></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">📊 Récapitulatif</div></div>
+          <div class="card-body">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding:6px 0;">Total HT <span id="devis-total-ht" style="color:#fff;font-weight:700;">0,00 €</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);padding:6px 0;">
+              TVA
+              <span style="display:flex;gap:4px;">
+                <button class="btn btn-sm devis-tva-btn btn-ghost" data-taux="0" onclick="setDevisTva(0)">0%</button>
+                <button class="btn btn-sm devis-tva-btn btn-ghost" data-taux="10" onclick="setDevisTva(10)">10%</button>
+                <button class="btn btn-sm devis-tva-btn btn-primary" data-taux="20" onclick="setDevisTva(20)">20%</button>
+              </span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding:6px 0;">Montant TVA <span id="devis-montant-tva" style="color:#fff;">(20%) 0,00 €</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#fff;padding:10px 0 0;border-top:1px solid var(--border);margin-top:6px;">TOTAL TTC <span id="devis-total-ttc" style="color:#52D98B;">0,00 €</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">⚡ Actions</div></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-primary btn-full" onclick="apercuDevis()">👁 Aperçu &amp; Impression</button>
+            <button class="btn btn-ghost btn-full" onclick="sauvegarderDevis()">💾 Sauvegarder dans l'historique</button>
+            <button class="btn btn-danger btn-full" onclick="nouveauDevis()">🔄 Nouveau devis</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-hdr-title">📚 Devis récents</div></div>
+          <div class="card-body" id="devis-history"><div class="empty"><p>Chargement…</p></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="page" id="page-hierarchie">
     <div class="page-title">Hiérarchie <span>du service</span></div>
     <div class="page-sub">Organisation actuelle de l'équipe de sécurité.</div>
@@ -1122,6 +1219,8 @@ const JOURNAL_TYPES = {
   candidature_suppr:    {color:"#F08080", label:"Candidature"},
   candidat_promu:       {color:"#52D98B", label:"Candidature"},
   entretien_maj:        {color:"#C8A0E8", label:"Candidature"},
+  devis_enregistre:     {color:"#2980B9", label:"Devis"},
+  devis_supprime:       {color:"#F08080", label:"Devis"},
   absence_nouvelle:     {color:"#F0A840", label:"Absence"},
   absence_statut:       {color:"#F0A840", label:"Absence"},
   absence_suppr:        {color:"#F08080", label:"Absence"},
@@ -1768,6 +1867,326 @@ async function apercuDoc(formKind) {
   }
 }
 
+// ─── DEVIS CLIENTS (PDG uniquement) ─────────────────────────────────
+let devisLignes = [{designation:"", prix:0, quantite:1, horaire:1}];
+let devisTvaTaux = 20;
+let currentDevisId = null;
+
+function fmtEuro(n) { return (n||0).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
+
+async function initDevisPage() {
+  await nouveauDevis(false);
+  loadDevisHistory();
+}
+
+async function nouveauDevis(confirmFirst) {
+  if(confirmFirst===undefined) confirmFirst = true;
+  if(confirmFirst && !confirm("Repartir sur un devis vierge ? Les modifications non sauvegardées seront perdues.")) return;
+  currentDevisId = null;
+  devisLignes = [{designation:"", prix:0, quantite:1, horaire:1}];
+  document.getElementById("devis-cl-nom").value = "";
+  document.getElementById("devis-cl-adresse").value = "";
+  document.getElementById("devis-cl-tel").value = "";
+  document.getElementById("devis-cl-email").value = "";
+  document.getElementById("devis-date").value = todayISO();
+  document.getElementById("devis-date-evt").value = "";
+  document.getElementById("devis-objet").value = "";
+  document.getElementById("devis-validite").value = "30 jours à compter de la date d'émission.";
+  document.getElementById("devis-delai").value = "Le jour de l'événement.";
+  document.getElementById("devis-modalites").value = "Solde à la livraison de la prestation.";
+  document.getElementById("devis-mode-paiement").value = "Virement bancaire / Facture.";
+  document.getElementById("devis-numero").value = await nextDevisNumero();
+  setDevisTva(20);
+  renderDevisLignes();
+}
+
+async function nextDevisNumero() {
+  const year = new Date().getFullYear();
+  try {
+    const rows = await sb(`devis?select=numero`);
+    const count = (rows||[]).filter(r=>r.numero && r.numero.includes("-"+year+"-")).length;
+    return `DC-${year}-${String(count+1).padStart(3,"0")}`;
+  } catch(e) { return `DC-${year}-001`; }
+}
+
+function renderDevisLignes() {
+  const el = document.getElementById("devis-lignes-container");
+  if(!el) return;
+  el.innerHTML = devisLignes.map((l,i)=>`
+    <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;position:relative;">
+      ${devisLignes.length>1 ? `<button class="btn btn-danger btn-sm" style="position:absolute;top:10px;right:10px;padding:3px 8px;" onclick="supprimerLigneDevis(${i})">✕</button>`:""}
+      <div class="field"><label>Désignation</label><input value="${esc(l.designation)}" oninput="updateDevisLigne(${i},'designation',this.value)" placeholder="Ex : Agent de sécurité"></div>
+      <div class="field-row-2">
+        <div class="field"><label>Prix unitaire HT (€/h/agent)</label><input type="number" min="0" step="0.01" value="${l.prix}" oninput="updateDevisLigne(${i},'prix',this.value)"></div>
+        <div class="field"><label>Quantité (agents)</label><input type="number" min="1" step="1" value="${l.quantite}" oninput="updateDevisLigne(${i},'quantite',this.value)"></div>
+      </div>
+      <div class="field"><label>Horaire (heures)</label><input type="number" min="0" step="0.5" value="${l.horaire}" oninput="updateDevisLigne(${i},'horaire',this.value)"></div>
+      <div style="text-align:right;font-size:12px;color:var(--text2);margin-top:4px;">Total HT de cette ligne : <span style="color:#52D98B;font-weight:800;" id="devis-ligne-total-${i}">${fmtEuro(l.prix*l.quantite*l.horaire)}</span></div>
+    </div>`).join("");
+  recomputeDevisTotals();
+}
+function ajouterLigneDevis() {
+  devisLignes.push({designation:"", prix:0, quantite:1, horaire:1});
+  renderDevisLignes();
+}
+function supprimerLigneDevis(i) {
+  devisLignes.splice(i,1);
+  renderDevisLignes();
+}
+function updateDevisLigne(i, field, value) {
+  if(!devisLignes[i]) return;
+  devisLignes[i][field] = (field==="designation") ? value : (parseFloat(value)||0);
+  const totalEl = document.getElementById("devis-ligne-total-"+i);
+  if(totalEl) totalEl.textContent = fmtEuro(devisLignes[i].prix*devisLignes[i].quantite*devisLignes[i].horaire);
+  recomputeDevisTotals();
+}
+function setDevisTva(taux) {
+  devisTvaTaux = taux;
+  document.querySelectorAll(".devis-tva-btn").forEach(b=>{
+    const isActive = parseInt(b.dataset.taux)===taux;
+    b.classList.toggle("btn-primary", isActive);
+    b.classList.toggle("btn-ghost", !isActive);
+  });
+  recomputeDevisTotals();
+}
+function calculerDevisTotaux() {
+  const totalHT = devisLignes.reduce((s,l)=>s+(l.prix*l.quantite*l.horaire),0);
+  const montantTva = totalHT*devisTvaTaux/100;
+  const totalTTC = totalHT+montantTva;
+  return {totalHT, montantTva, totalTTC};
+}
+function recomputeDevisTotals() {
+  const {totalHT, montantTva, totalTTC} = calculerDevisTotaux();
+  const elHT = document.getElementById("devis-total-ht");
+  const elTva = document.getElementById("devis-montant-tva");
+  const elTTC = document.getElementById("devis-total-ttc");
+  if(elHT) elHT.textContent = fmtEuro(totalHT);
+  if(elTva) elTva.textContent = `(${devisTvaTaux}%) `+fmtEuro(montantTva);
+  if(elTTC) elTTC.textContent = fmtEuro(totalTTC);
+}
+
+function collectDevisData() {
+  const {totalHT, montantTva, totalTTC} = calculerDevisTotaux();
+  return {
+    numero: document.getElementById("devis-numero").value,
+    em_societe: document.getElementById("devis-em-societe").value.trim(),
+    em_adresse: document.getElementById("devis-em-adresse").value.trim(),
+    em_tel: document.getElementById("devis-em-tel").value.trim(),
+    em_email: document.getElementById("devis-em-email").value.trim(),
+    client_nom: document.getElementById("devis-cl-nom").value.trim(),
+    client_adresse: document.getElementById("devis-cl-adresse").value.trim(),
+    client_telephone: document.getElementById("devis-cl-tel").value.trim(),
+    client_email: document.getElementById("devis-cl-email").value.trim(),
+    date_devis: document.getElementById("devis-date").value || todayISO(),
+    date_evenement: document.getElementById("devis-date-evt").value || null,
+    objet: document.getElementById("devis-objet").value.trim(),
+    lignes: devisLignes,
+    tva_taux: devisTvaTaux,
+    total_ht: totalHT, montant_tva: montantTva, total_ttc: totalTTC,
+    validite: document.getElementById("devis-validite").value.trim(),
+    delai: document.getElementById("devis-delai").value.trim(),
+    modalites: document.getElementById("devis-modalites").value.trim(),
+    mode_paiement: document.getElementById("devis-mode-paiement").value.trim(),
+  };
+}
+
+async function sauvegarderDevis() {
+  const data = collectDevisData();
+  if(!data.client_nom) { toast("Merci d'indiquer le nom / société du client.","#E74C3C"); return; }
+  try {
+    const payload = {...data, auteur: identityLabel()};
+    let r;
+    if(currentDevisId) {
+      r = await fetch(SB_URL+"/rest/v1/devis?id=eq."+currentDevisId, {method:"PATCH", headers:{...H,"Prefer":"return=minimal"}, mode:"cors", body:JSON.stringify(payload)});
+    } else {
+      r = await fetch(SB_URL+"/rest/v1/devis", {method:"POST", headers:{...H,"Prefer":"return=representation"}, mode:"cors", body:JSON.stringify(payload)});
+    }
+    if(!r.ok) throw new Error(await r.text());
+    if(!currentDevisId) {
+      const created = await r.json();
+      currentDevisId = created && created[0] && created[0].id;
+    }
+    logActivity("devis_enregistre", `Devis ${data.numero} enregistré pour ${data.client_nom} (${fmtEuro(data.total_ttc)})`);
+    toast("✓ Devis enregistré : "+data.numero);
+    loadDevisHistory();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
+function buildDevisInner(d) {
+  const escHtml = s => (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const dateDevisFr = d.date_devis ? new Date(d.date_devis+"T12:00:00").toLocaleDateString("fr-FR") : "—";
+  const dateEvtFr = d.date_evenement ? new Date(d.date_evenement+"T12:00:00").toLocaleDateString("fr-FR") : "—";
+  const lignesHTML = (d.lignes||[]).filter(l=>l.designation).map(l=>`
+    <tr>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;">${escHtml(l.designation)}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:center;">${l.quantite}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:center;">${l.horaire} h</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:right;">${fmtEuro(l.prix)}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">${fmtEuro(l.prix*l.quantite*l.horaire)}</td>
+    </tr>`).join("");
+  const css = `
+.devis-page{width:700px;background:#fff;padding:40px 40px 50px;font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;}
+.devis-titlebar{background:#1a1a2e;color:#fff;font-weight:800;font-size:16px;letter-spacing:0.03em;padding:14px 18px;border-radius:2px;margin-bottom:20px;}
+.devis-emetteur{font-size:12px;color:#333;line-height:1.7;margin-bottom:20px;}
+.devis-emetteur .nom{font-weight:800;font-size:14px;}
+.devis-infobox-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.devis-infobox{background:#f5f7fa;border-left:3px solid #2980B9;border-radius:0 6px 6px 0;padding:12px 14px;}
+.devis-infobox.client{border-left-color:#7D3C98;}
+.devis-infobox .titre{font-size:11px;font-weight:800;color:#2980B9;text-transform:uppercase;margin-bottom:6px;}
+.devis-infobox.client .titre{color:#7D3C98;}
+.devis-infobox .ligne{font-size:11.5px;color:#333;margin-bottom:2px;}
+.devis-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:#1a1a1a;margin:18px 0 8px;}
+.devis-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+.devis-table thead th{background:#f5f7fa;padding:9px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#666;}
+.devis-totaux{margin-top:10px;width:280px;margin-left:auto;font-size:12px;}
+.devis-totaux .row{display:flex;justify-content:space-between;padding:5px 0;color:#444;}
+.devis-totaux .ttc{font-weight:800;font-size:14px;color:#1a1a1a;background:#eafaf1;padding:9px 10px;border-radius:6px;margin-top:6px;}
+.devis-cgv{font-size:11px;color:#444;line-height:1.9;margin-top:18px;}
+.devis-signature{margin-top:40px;font-size:11px;color:#444;display:flex;justify-content:flex-end;text-align:right;}
+.devis-signature .box{width:220px;}
+.devis-footer{margin-top:30px;font-size:9px;color:#999;text-align:center;}
+`;
+  const html = `<div class="devis-page">
+    <div class="devis-titlebar">DEVIS DE PRESTATION DE SERVICES</div>
+    <div class="devis-emetteur">
+      <div class="nom">${escHtml(d.em_societe)}</div>
+      Adresse : ${escHtml(d.em_adresse)}<br>
+      Téléphone : ${escHtml(d.em_tel)}<br>
+      Email : ${escHtml(d.em_email)}
+    </div>
+    <div class="devis-infobox-grid">
+      <div class="devis-infobox client">
+        <div class="titre">Client</div>
+        <div class="ligne"><strong>Nom / Société :</strong> ${escHtml(d.client_nom)}</div>
+        <div class="ligne">Adresse : ${escHtml(d.client_adresse)||"Non communiqué"}</div>
+        <div class="ligne">Téléphone : ${escHtml(d.client_telephone)||"Non communiqué"}</div>
+        <div class="ligne">Email : ${escHtml(d.client_email)||"Non communiqué"}</div>
+      </div>
+      <div class="devis-infobox">
+        <div class="titre">Informations</div>
+        <div class="ligne">Date du devis : ${dateDevisFr}</div>
+        <div class="ligne">Numéro de devis : ${escHtml(d.numero)}</div>
+        <div class="ligne">Date de l'événement : ${dateEvtFr}</div>
+        <div class="ligne">Objet : ${escHtml(d.objet)||"—"}</div>
+      </div>
+    </div>
+    <div class="devis-section-title">Description de la prestation</div>
+    <table class="devis-table">
+      <thead><tr><th>Désignation de la prestation</th><th style="text-align:center;">Quantité</th><th style="text-align:center;">Horaire</th><th style="text-align:right;">Prix unitaire HT</th><th style="text-align:right;">Total HT</th></tr></thead>
+      <tbody>${lignesHTML}</tbody>
+    </table>
+    <div class="devis-totaux">
+      <div class="row"><span>Total HT</span><span>${fmtEuro(d.total_ht)}</span></div>
+      <div class="row"><span>TVA (${d.tva_taux}%)</span><span>${fmtEuro(d.montant_tva)}</span></div>
+      <div class="row ttc"><span>Total TTC</span><span>${fmtEuro(d.total_ttc)}</span></div>
+    </div>
+    <div class="devis-section-title">Conditions générales</div>
+    <div class="devis-cgv">
+      - Validité du devis : ${escHtml(d.validite)}<br>
+      - Délai de réalisation : ${escHtml(d.delai)}<br>
+      - Modalités de paiement : ${escHtml(d.modalites)}<br>
+      - Mode de paiement accepté : ${escHtml(d.mode_paiement)}
+    </div>
+    <div class="devis-signature">
+      <div class="box">
+        Signature du client (précédée de la mention « Bon pour accord ») :<br><br>
+        Date : ____________<br><br><br>
+        <div style="border-top:1px solid #999;padding-top:4px;">Signature</div>
+      </div>
+    </div>
+    <div class="devis-footer">${escHtml(d.numero)} — Dog Compagnie — Document généré le ${new Date().toLocaleDateString("fr-FR")}</div>
+  </div>`;
+  return {css, html};
+}
+
+async function renderDevisAsJPEG(data) {
+  if(typeof html2canvas==="undefined") throw new Error("Le module de génération d'image n'a pas pu se charger.");
+  const {css, html} = buildDevisInner(data);
+  const zone = document.getElementById("doc-render-zone");
+  zone.innerHTML = `<style>${css}</style>${html}`;
+  await new Promise(r=>setTimeout(r,60));
+  const target = zone.querySelector(".devis-page");
+  const canvas = await html2canvas(target, {scale:2, backgroundColor:"#ffffff", useCORS:true});
+  zone.innerHTML = "";
+  return await new Promise(resolve=>{
+    canvas.toBlob(blob=>resolve(URL.createObjectURL(blob)), "image/jpeg", 0.95);
+  });
+}
+
+async function apercuDevis() {
+  const data = collectDevisData();
+  if(!data.client_nom) { toast("Merci d'indiquer le nom / société du client.","#E74C3C"); return; }
+  toast("⏳ Génération de l'aperçu…","#5D8AA8");
+  try {
+    const url = await renderDevisAsJPEG(data);
+    showDocPreview(url, data.numero);
+  } catch(e) { toast("Erreur lors de la génération : "+e.message,"#E74C3C"); }
+}
+
+async function loadDevisHistory() {
+  const el = document.getElementById("devis-history");
+  try {
+    const rows = await sb("devis?select=*&order=created_at.desc&limit=50");
+    if(!el) return;
+    if(!rows.length) { el.innerHTML = '<div class="empty"><p>Aucun devis pour le moment.</p></div>'; return; }
+    el.innerHTML = rows.map(r=>`
+      <div class="log-item">
+        <div><div class="log-agent">${esc(r.numero)} — ${esc(r.client_nom)}</div><div class="log-dates">${fmtEuro(r.total_ttc)} · par ${esc(r.auteur||"—")}</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="chargerDevis('${r.id}')">📂 Charger</button>
+          <button class="btn btn-primary btn-sm" onclick="reprintDevis('${r.id}')">👁 Revoir</button>
+          <button class="btn btn-danger btn-sm" onclick="supprimerDevis('${r.id}')">🗑</button>
+        </div>
+      </div>`).join("");
+  } catch(e) { if(el) el.innerHTML = '<div class="empty"><p>Erreur de chargement.</p></div>'; }
+}
+async function chargerDevis(id) {
+  try {
+    const rows = await sb(`devis?id=eq.${id}&select=*`);
+    const d = rows && rows[0];
+    if(!d) return;
+    currentDevisId = d.id;
+    document.getElementById("devis-em-societe").value = d.em_societe||"";
+    document.getElementById("devis-em-adresse").value = d.em_adresse||"";
+    document.getElementById("devis-em-tel").value = d.em_tel||"";
+    document.getElementById("devis-em-email").value = d.em_email||"";
+    document.getElementById("devis-cl-nom").value = d.client_nom||"";
+    document.getElementById("devis-cl-adresse").value = d.client_adresse||"";
+    document.getElementById("devis-cl-tel").value = d.client_telephone||"";
+    document.getElementById("devis-cl-email").value = d.client_email||"";
+    document.getElementById("devis-date").value = d.date_devis||"";
+    document.getElementById("devis-numero").value = d.numero||"";
+    document.getElementById("devis-date-evt").value = d.date_evenement||"";
+    document.getElementById("devis-objet").value = d.objet||"";
+    document.getElementById("devis-validite").value = d.validite||"";
+    document.getElementById("devis-delai").value = d.delai||"";
+    document.getElementById("devis-modalites").value = d.modalites||"";
+    document.getElementById("devis-mode-paiement").value = d.mode_paiement||"";
+    devisLignes = (Array.isArray(d.lignes) && d.lignes.length) ? d.lignes : [{designation:"",prix:0,quantite:1,horaire:1}];
+    setDevisTva(d.tva_taux||20);
+    renderDevisLignes();
+    toast("✓ Devis chargé : "+d.numero);
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function reprintDevis(id) {
+  try {
+    const rows = await sb(`devis?id=eq.${id}&select=*`);
+    const d = rows && rows[0];
+    if(!d) return;
+    const url = await renderDevisAsJPEG(d);
+    showDocPreview(url, d.numero);
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+async function supprimerDevis(id) {
+  if(!confirm("Supprimer définitivement ce devis ?")) return;
+  try {
+    await sb(`devis?id=eq.${id}`,{method:"DELETE"});
+    logActivity("devis_supprime","Devis supprimé");
+    toast("✓ Devis supprimé");
+    loadDevisHistory();
+  } catch(e) { toast("Erreur : "+e.message,"#E74C3C"); }
+}
+
 async function loadDocHistory(scope) {
   try {
     const rows = await sb("documents?select=*&order=created_at.desc&limit=100");
@@ -1940,7 +2359,7 @@ function renderJournal() {
   const statsEl = document.getElementById("journal-stats");
   const filterEl = document.getElementById("journal-filter-bar");
   if(!el) return;
-  const cats = ["Candidature","Absence","Patrouille","Compte","Service","Alerte","Évaluation","Document"];
+  const cats = ["Candidature","Absence","Patrouille","Compte","Service","Alerte","Évaluation","Document","Devis"];
   if(statsEl) {
     statsEl.innerHTML = cats.map(cat=>{
       const n = allLogsJournal.filter(l=>journalMeta(l.type).label===cat).length;
@@ -2037,6 +2456,7 @@ const NAV_CONFIG = [
   {page:"candidatures",     icon:"📨", label:"Candidatures reçues",   roles:["responsable","pdg","admin"],         section:"Gestion", badgeId:"nav-badge-cand"},
   {page:"evaluations",      icon:"🎯", label:"Évaluations agents",    roles:["responsable","pdg","admin"],                 section:"Gestion", badgeId:"nav-badge-eval"},
   {page:"doc-rh",           icon:"🗂️", label:"Documents RH",          roles:["responsable","pdg","admin"],                 section:"Gestion"},
+  {page:"devis",            icon:"🧾", label:"Devis clients",         roles:["pdg","admin"],                               section:"Gestion"},
   {page:"admin-comptes",    icon:"⚙️", label:"Gestion des comptes",   roles:["pdg","admin"],                       section:"Administration"},
   {page:"journal",          icon:"🗒️", label:"Journal d'activité",    roles:["admin"],                             section:"Administration"},
   {page:"candidature-form", icon:"📝", label:"Candidater au service", roles:["candidat"],                          section:""},
@@ -2088,6 +2508,7 @@ function goPage(pageId) {
   if(pageId==="journal")           { loadJournal(); refreshMaintStatusBadge(); loadDiscordWebhook(); }
   if(pageId==="evaluations")       loadEvaluations();
   if(pageId==="doc-rh")            { setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh"); }
+  if(pageId==="devis")             initDevisPage();
   if(pageId==="incident")          { prefillDocDates(); loadDocHistory("incident"); }
   if(pageId==="mon-service")       initServicePage();
   if(pageId==="absence-form") {
