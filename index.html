@@ -323,6 +323,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 
 /* ÉVALUATIONS */
 .eval-btn{width:32px;height:28px;border-radius:7px;border:1.5px solid var(--border);background:rgba(13,21,32,0.5);color:var(--text2);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;}
+.eval-btn:disabled{opacity:0.3;cursor:not-allowed;}
 .eval-btn:hover{border-color:rgba(41,128,185,0.5);}
 .eval-btn.active-acquis{background:rgba(30,132,73,0.25);border-color:var(--green);color:#52D98B;}
 .eval-btn.active-insuffisant{background:rgba(211,84,0,0.25);border-color:var(--orange);color:#F0A840;}
@@ -1410,21 +1411,26 @@ function renderEvalTable() {
     }
     const st = evalState[i]||"non_note";
     const score = st==="acquis"?c.max : st==="insuffisant"?Math.round(c.max*0.5) : null;
+    const locked = !!evalElim[i];
     html += `<tr>
       <td style="padding:10px 12px;font-size:12px;">${esc(c.nom)}</td>
       <td class="center" style="font-weight:700;">${c.max}</td>
-      <td class="center"><button class="eval-btn ${st==="acquis"?"active-acquis":""}" onclick="setEvalState(${i},'acquis')">✓</button></td>
-      <td class="center"><button class="eval-btn ${st==="insuffisant"?"active-insuffisant":""}" onclick="setEvalState(${i},'insuffisant')">~</button></td>
-      <td class="center"><button class="eval-btn ${st==="non_note"?"active-nn":""}" onclick="setEvalState(${i},'non_note')">NN</button></td>
-      <td class="center">${c.elim?`<button class="eval-elim-badge ${evalElim[i]?"active":""}" onclick="toggleElim(${i})" title="Marquer ce critère comme éliminatoire pour cette évaluation">ÉLIM</button>`:"—"}</td>
-      <td class="center" style="font-weight:800;">${score===null?"—":score}</td>
+      <td class="center"><button class="eval-btn ${st==="acquis"?"active-acquis":""}" ${locked?"disabled":""} onclick="setEvalState(${i},'acquis')">✓</button></td>
+      <td class="center"><button class="eval-btn ${st==="insuffisant"?"active-insuffisant":""}" ${locked?"disabled":""} onclick="setEvalState(${i},'insuffisant')">~</button></td>
+      <td class="center"><button class="eval-btn ${st==="non_note"?"active-nn":""}" ${locked?"disabled":""} onclick="setEvalState(${i},'non_note')">NN</button></td>
+      <td class="center">${c.elim?`<button class="eval-elim-badge ${locked?"active":""}" onclick="toggleElim(${i})" title="Marquer ce critère comme éliminatoire pour cette évaluation">ÉLIM</button>`:"—"}</td>
+      <td class="center" style="font-weight:800;">${locked?"—":(score===null?"—":score)}</td>
     </tr>`;
   });
   tbody.innerHTML = html;
   updateEvalVerdict();
 }
-function setEvalState(i, state) { evalState[i] = state; renderEvalTable(); }
-function toggleElim(i) { evalElim[i] = !evalElim[i]; renderEvalTable(); }
+function setEvalState(i, state) { if(evalElim[i]) return; evalState[i] = state; renderEvalTable(); }
+function toggleElim(i) {
+  evalElim[i] = !evalElim[i];
+  if(evalElim[i]) evalState[i] = "non_note";
+  renderEvalTable();
+}
 
 function computeVerdict(pct, eliminated) {
   if(eliminated) return "Éliminé";
