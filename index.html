@@ -2018,11 +2018,11 @@ function buildDevisInner(d) {
   const dateEvtFr = d.date_evenement ? new Date(d.date_evenement+"T12:00:00").toLocaleDateString("fr-FR") : "—";
   const lignesHTML = (d.lignes||[]).filter(l=>l.designation).map(l=>`
     <tr>
-      <td style="padding:9px 10px;border-bottom:1px solid #eee;">${escHtml(l.designation)}</td>
-      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:center;">${l.quantite}</td>
-      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:center;">${l.horaire} h</td>
-      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:right;">${fmtEuro(l.prix)}</td>
-      <td style="padding:9px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">${fmtEuro(l.prix*l.quantite*l.horaire)}</td>
+      <td style="padding:8px 7px;border-bottom:1px solid #eee;">${escHtml(l.designation)}</td>
+      <td style="padding:8px 7px;border-bottom:1px solid #eee;text-align:center;">${l.quantite}</td>
+      <td style="padding:8px 7px;border-bottom:1px solid #eee;text-align:center;">${l.horaire} h</td>
+      <td style="padding:8px 7px;border-bottom:1px solid #eee;text-align:right;">${fmtEuro(l.prix)}</td>
+      <td style="padding:8px 7px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">${fmtEuro(l.prix*l.quantite*l.horaire)}</td>
     </tr>`).join("");
   const css = `
 .devis-page{width:700px;background:#fff;padding:40px 40px 50px;font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;}
@@ -2036,8 +2036,9 @@ function buildDevisInner(d) {
 .devis-infobox.client .titre{color:#7D3C98;}
 .devis-infobox .ligne{font-size:11.5px;color:#333;margin-bottom:2px;}
 .devis-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:#1a1a1a;margin:18px 0 8px;}
-.devis-table{width:100%;border-collapse:collapse;font-size:11.5px;}
-.devis-table thead th{background:#f5f7fa;padding:9px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#666;}
+.devis-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10.5px;}
+.devis-table th, .devis-table td{word-wrap:break-word;overflow-wrap:break-word;}
+.devis-table thead th{background:#f5f7fa;padding:8px 7px;text-align:left;font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.01em;}
 .devis-totaux{margin-top:10px;width:280px;margin-left:auto;font-size:12px;}
 .devis-totaux .row{display:flex;justify-content:space-between;padding:5px 0;color:#444;}
 .devis-totaux .ttc{font-weight:800;font-size:14px;color:#1a1a1a;background:#eafaf1;padding:9px 10px;border-radius:6px;margin-top:6px;}
@@ -2072,7 +2073,13 @@ function buildDevisInner(d) {
     </div>
     <div class="devis-section-title">Description de la prestation</div>
     <table class="devis-table">
-      <thead><tr><th>Désignation de la prestation</th><th style="text-align:center;">Quantité</th><th style="text-align:center;">Horaire</th><th style="text-align:right;">Prix unitaire HT</th><th style="text-align:right;">Total HT</th></tr></thead>
+      <thead><tr>
+        <th style="width:34%;">Désignation de la prestation</th>
+        <th style="width:12%;text-align:center;">Quantité</th>
+        <th style="width:12%;text-align:center;">Horaire</th>
+        <th style="width:21%;text-align:right;">Prix unitaire HT</th>
+        <th style="width:21%;text-align:right;">Total HT</th>
+      </tr></thead>
       <tbody>${lignesHTML}</tbody>
     </table>
     <div class="devis-totaux">
