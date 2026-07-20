@@ -2714,21 +2714,18 @@ function updateNotifBadges() {
 }
 
 // ─── MODE MAINTENANCE (Admin) ────────────────────────────────────────
-const MAINTENANCE_PAGE_OPTIONS = [
-  {id:"ALL", label:"🌐 Tout le site"},
-  {id:"patrouilles", label:"Patrouilles"},
-  {id:"hierarchie", label:"Hiérarchie"},
-  {id:"mon-service", label:"Mon service"},
-  {id:"absence-form", label:"Déclarer une absence"},
-  {id:"incident", label:"Rapport d'incident"},
-  {id:"absences-gestion", label:"Gestion des absences"},
-  {id:"logs-service", label:"Logs de service"},
-  {id:"candidatures", label:"Candidatures reçues"},
-  {id:"evaluations", label:"Évaluations agents"},
-  {id:"doc-rh", label:"Documents RH"},
-  {id:"admin-comptes", label:"Gestion des comptes"},
-  {id:"candidature-form", label:"Formulaire de candidature (public)"},
-];
+function getMaintenancePageOptions() {
+  // Générée automatiquement à partir de NAV_CONFIG : toute nouvelle page ajoutée au menu
+  // apparaît ici sans intervention manuelle. "journal" est exclu (page Admin elle-même).
+  const seen = new Set();
+  const opts = [{id:"ALL", label:"🌐 Tout le site"}];
+  NAV_CONFIG.forEach(item=>{
+    if(item.page==="journal" || seen.has(item.page)) return;
+    seen.add(item.page);
+    opts.push({id:item.page, label:item.label});
+  });
+  return opts;
+}
 let maintenancePages = [];
 let maintenanceMessage = "";
 let _maintenancePoll = null;
@@ -2824,7 +2821,7 @@ async function checkMaintenanceGate() {
 function renderMaintPagesList() {
   const el = document.getElementById("maint-pages-list");
   if(!el) return;
-  el.innerHTML = MAINTENANCE_PAGE_OPTIONS.map(p=>`
+  el.innerHTML = getMaintenancePageOptions().map(p=>`
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">
       <input type="checkbox" class="maint-page-cb" value="${p.id}" ${maintenancePages.includes(p.id)?"checked":""} style="width:16px;height:16px;accent-color:#C0392B;">
       ${esc(p.label)}
@@ -2842,7 +2839,7 @@ async function enregistrerMaintenance() {
       body: JSON.stringify({pages: checked, message: msg||null, updated_by: identityLabel()})
     });
     if(!r.ok) throw new Error(await r.text());
-    const labels = checked.map(id=>(MAINTENANCE_PAGE_OPTIONS.find(o=>o.id===id)||{}).label||id);
+    const labels = checked.map(id=>(getMaintenancePageOptions().find(o=>o.id===id)||{}).label||id);
     logActivity("maintenance_maj", checked.length ? `Maintenance activée sur : ${labels.join(", ")}` : "Maintenance désactivée (aucune page sélectionnée)");
     toast(checked.length ? "🚧 Maintenance enregistrée" : "✓ Maintenance désactivée");
     await refreshMaintStatusBadge();
