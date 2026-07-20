@@ -302,6 +302,19 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 .hier-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:10px;}
 .hier-role-select{width:100%;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.25);border-radius:7px;color:#fff;font-size:11px;padding:6px 6px;text-align:center;}
 
+/* ENTRETIEN D'EMBAUCHE */
+.ent-score-bar{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;font-weight:700;color:#fff;}
+.ent-cat-hdr{font-size:12px;font-weight:800;color:#A8CFEA;text-transform:uppercase;letter-spacing:0.06em;margin:18px 0 10px;display:flex;align-items:center;gap:7px;}
+.ent-q-card{background:rgba(13,21,32,0.4);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+.ent-q-title{font-size:13px;font-weight:700;color:#fff;line-height:1.4;}
+.ent-q-sub{font-size:11px;color:#5DADE2;font-style:italic;margin-top:3px;margin-bottom:8px;}
+.ent-stars{display:flex;gap:3px;}
+.ent-star{background:none;border:none;font-size:19px;cursor:pointer;color:#2A3D52;padding:2px;line-height:1;font-family:inherit;}
+.ent-star.filled{color:#F0A840;}
+.ent-star:hover{color:#F0A840;}
+.ent-q-status{font-size:10px;color:var(--text3);margin-top:4px;}
+.ent-q-note{width:100%;background:rgba(13,21,32,0.7);border:1px solid rgba(41,128,185,0.18);border-radius:7px;color:#fff;font-size:12px;padding:8px 10px;margin-top:8px;resize:vertical;min-height:44px;font-family:inherit;}
+
 /* JOURNAL D'ACTIVITÉ */
 .journal-item{background:rgba(13,21,32,0.5);border:1px solid var(--border);border-left:4px solid var(--text3);border-radius:8px;padding:11px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .journal-msg{font-size:12px;color:var(--text);line-height:1.4;}
@@ -1018,26 +1031,50 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
 
 <!-- ═══ QUESTIONNAIRE D'ENTRETIEN (Responsable/PDG uniquement — jamais visible au candidat) ═══ -->
 <div id="entretien-modal" class="alert-popup">
-  <div class="alert-popup-box" style="max-width:560px;max-height:85vh;overflow-y:auto;text-align:left;">
+  <div class="alert-popup-box" style="max-width:720px;max-height:88vh;overflow-y:auto;text-align:left;">
     <div class="alert-popup-title" style="text-align:center;">📋 Questionnaire d'entretien</div>
     <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:14px;font-style:italic;">Usage interne uniquement — jamais visible par le candidat.</div>
-    <div class="field"><label>Date de l'entretien</label><input type="date" id="ent-date"></div>
-    <div class="field"><label>Présentation générale</label><textarea id="ent-presentation" rows="2" placeholder="Attitude, sérieux, communication…"></textarea></div>
-    <div class="field"><label>Motivation</label><textarea id="ent-motivation" rows="2"></textarea></div>
-    <div class="field"><label>Compétences / expérience</label><textarea id="ent-competences" rows="2"></textarea></div>
-    <div class="field"><label>Points forts</label><textarea id="ent-forces" rows="2"></textarea></div>
-    <div class="field"><label>Points de vigilance</label><textarea id="ent-vigilance" rows="2"></textarea></div>
+
+    <div class="card-hdr" style="border-radius:10px;margin-bottom:14px;"><div class="card-hdr-title">👤 Informations du candidat</div></div>
+    <div class="field-row-2">
+      <div class="field"><label>Prénom NOM</label><input id="ent-prenom-nom" placeholder="Ex : Jean DUPONT"></div>
+      <div class="field"><label>Âge</label><input id="ent-age" type="number" placeholder="ans"></div>
+    </div>
+    <div class="field-row-2">
+      <div class="field"><label>Disponible dès</label><input id="ent-dispo" placeholder="Ex : immédiatement, semaine prochaine…"></div>
+      <div class="field">
+        <label>Expérience sécurité</label>
+        <select id="ent-experience">
+          <option value="">— Sélectionner —</option>
+          <option value="Aucune">Aucune</option>
+          <option value="Débutant(e)">Débutant(e)</option>
+          <option value="Quelques mois">Quelques mois</option>
+          <option value="1 à 2 ans">1 à 2 ans</option>
+          <option value="Plus de 2 ans">Plus de 2 ans</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Notes générales sur le candidat</label><textarea id="ent-notes-generales" rows="3" placeholder="Présentation, première impression…"></textarea></div>
+
+    <div class="card-hdr" style="border-radius:10px;margin:18px 0 10px;"><div class="card-hdr-title">📊 Score de l'entretien</div></div>
+    <div class="ent-score-bar" id="ent-score-display">0 / 95 pts · 0% (0/19 notées)</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:16px;">Notez chaque question de ⭐ (insuffisant) à ⭐⭐⭐⭐⭐ (excellent). Vous pouvez aussi laisser des notes libres sous chaque question.</div>
+
+    <div id="ent-questions-container"></div>
+
+    <div class="card-hdr" style="border-radius:10px;margin:18px 0 10px;"><div class="card-hdr-title">✅ Verdict</div></div>
     <div class="field">
       <label>Recommandation</label>
-      <select id="ent-recommandation">
+      <select id="ent-verdict">
         <option value="">— Sélectionner —</option>
         <option value="Favorable">Favorable</option>
         <option value="Réservé">Réservé</option>
         <option value="Défavorable">Défavorable</option>
       </select>
     </div>
-    <div class="field"><label>Notes libres</label><textarea id="ent-notes" rows="3"></textarea></div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:10px;" id="ent-meta"></div>
+    <div class="field"><label>Commentaire de verdict</label><textarea id="ent-verdict-comment" rows="3" placeholder="Raisons du verdict, points à retenir…"></textarea></div>
+
+    <div style="font-size:10px;color:var(--text3);margin:10px 0;" id="ent-meta"></div>
     <button class="btn btn-success btn-full" onclick="enregistrerEntretien()">💾 Enregistrer</button>
     <button class="btn btn-ghost btn-full" onclick="closeEntretien()" style="margin-top:8px;">Fermer</button>
   </div>
@@ -3079,31 +3116,109 @@ async function sendStaffMessage() {
 }
 
 // ─── QUESTIONNAIRE D'ENTRETIEN (Responsable/PDG — jamais exposé au candidat) ──
+const ENTRETIEN_QUESTIONS = [
+  {cat:"Motivation & Intérêt", q:"Pourquoi veux-tu rejoindre le Service Sécurité de la Dog Compagnie ?", sub:"Évaluer la sincérité et la connaissance du service."},
+  {cat:"Motivation & Intérêt", q:"Qu'est-ce que la sécurité représente pour toi au sein de la Dog Compagnie ?", sub:"Chercher une vision professionnelle : ordre, protection des civils, sérieux."},
+  {cat:"Motivation & Intérêt", q:"As-tu déjà postulé dans d'autres services de sécurité ? Si oui, pourquoi nous as-tu choisis ?", sub:"Vérifier la fidélité et la motivation spécifique."},
+  {cat:"Motivation & Intérêt", q:"Qu'est-ce que tu attends de ce poste sur le long terme ?", sub:"Évaluer l'ambition et l'investissement prévu."},
+  {cat:"Expérience & Compétences", q:"As-tu une expérience dans un service de sécurité ou forces de l'ordre ? Si oui, laquelle ?", sub:"Expérience terrain, connaissance des procédures et des environnements sécuritaires."},
+  {cat:"Expérience & Compétences", q:"Comment gères-tu une situation de conflit avec un civil ?", sub:"Chercher : désescalade, calme, protocole."},
+  {cat:"Expérience & Compétences", q:"Es-tu à l'aise avec les procédures (rapports, radio, zones de compétence) ?", sub:"Vérifier la rigueur procédurale."},
+  {cat:"Expérience & Compétences", q:"Quelles sont tes points forts et tes points à améliorer ?", sub:"Honnêteté et lucidité sur soi-même."},
+  {cat:"Expérience & Compétences", q:"Sais-tu utiliser une radio et respecter les codes de communication ?", sub:"Évaluer les compétences techniques de base."},
+  {cat:"Comportement & Attitude", q:"Comment tu te comportes avec tes supérieurs hiérarchiques ?", sub:"Respect, écoute, obéissance sans servilité."},
+  {cat:"Comportement & Attitude", q:"As-tu déjà eu un conflit avec un collègue ? Comment tu l'as géré ?", sub:"Maturité, communication, résolution."},
+  {cat:"Comportement & Attitude", q:"Que fais-tu si tu es témoin d'un agent qui ne respecte pas les règles ?", sub:"Intégrité, courage, chaîne de commandement."},
+  {cat:"Comportement & Attitude", q:"Comment réagis-tu face à une situation stressante ou dangereuse ?", sub:"Sang-froid, réflexes, prise de décision."},
+  {cat:"Comportement & Attitude", q:"Comment gères-tu la critique ou une remarque de ta hiérarchie ?", sub:"Ouverture d'esprit, remise en question."},
+  {cat:"Scénarios / Mises en situation", q:"Un civil devient agressif envers toi lors d'un contrôle. Que fais-tu ?", sub:"Procédure : verbal → renfort → intervention si nécessaire."},
+  {cat:"Scénarios / Mises en situation", q:"Tu constates qu'un collègue utilise sa position pour intimider des civils. Que fais-tu ?", sub:"Évaluer le sens des responsabilités et l'intégrité."},
+  {cat:"Scénarios / Mises en situation", q:"Lors d'une patrouille tu découvres une infraction en cours sans avoir de renfort disponible. Comment tu réagis ?", sub:"Évaluer le jugement et la prise de décision sous pression."},
+  {cat:"Scénarios / Mises en situation", q:"Un supérieur te donne un ordre que tu estimes injuste. Quelle est ta réaction ?", sub:"Obéissance + voie hiérarchique pour contester."},
+  {cat:"Scénarios / Mises en situation", q:"Un véhicule suspect refuse de s'arrêter lors d'un contrôle. Quelle est ta conduite à tenir ?", sub:"Procédure, sécurité, proportionnalité."},
+];
+const ENT_CAT_ICONS = {"Motivation & Intérêt":"🎯","Expérience & Compétences":"🛡️","Comportement & Attitude":"🎖️","Scénarios / Mises en situation":"🚦"};
+
 let currentEntretienCandidatureId = null;
 let currentEntretienId = null;
-const ENT_FIELDS = ["presentation","motivation","competences","forces","vigilance","notes"];
+let entretienReponses = [];
+
+function renderEntretienQuestions() {
+  const container = document.getElementById("ent-questions-container");
+  if(!container) return;
+  let html = "", lastCat = null;
+  ENTRETIEN_QUESTIONS.forEach((q,i)=>{
+    if(q.cat!==lastCat) {
+      html += `<div class="ent-cat-hdr">${ENT_CAT_ICONS[q.cat]||""} ${esc(q.cat)}</div>`;
+      lastCat = q.cat;
+    }
+    const r = entretienReponses[i] || {note:null, commentaire:""};
+    const stars = [1,2,3,4,5].map(n=>`<button type="button" class="ent-star ${r.note>=n?"filled":""}" onclick="setEntretienNote(${i},${n})">★</button>`).join("");
+    html += `<div class="ent-q-card">
+      <div class="ent-q-title">${i+1}. ${esc(q.q)}</div>
+      <div class="ent-q-sub">${esc(q.sub)}</div>
+      <div class="ent-stars">${stars}</div>
+      <div class="ent-q-status">${r.note?r.note+"/5":"Non noté"}</div>
+      <textarea class="ent-q-note" placeholder="Notes libres sur la réponse…" oninput="setEntretienCommentaire(${i}, this.value)">${esc(r.commentaire||"")}</textarea>
+    </div>`;
+  });
+  container.innerHTML = html;
+  updateEntretienScore();
+}
+function setEntretienNote(i, n) {
+  if(!entretienReponses[i]) entretienReponses[i] = {note:null, commentaire:""};
+  entretienReponses[i].note = (entretienReponses[i].note===n) ? null : n;
+  renderEntretienQuestions();
+}
+function setEntretienCommentaire(i, val) {
+  if(!entretienReponses[i]) entretienReponses[i] = {note:null, commentaire:""};
+  entretienReponses[i].commentaire = val;
+}
+function updateEntretienScore() {
+  let total=0, notees=0;
+  entretienReponses.forEach(r=>{ if(r && r.note){ total+=r.note; notees++; } });
+  const max = ENTRETIEN_QUESTIONS.length*5;
+  const pct = max>0 ? Math.round((total/max)*100) : 0;
+  const el = document.getElementById("ent-score-display");
+  if(el) el.innerHTML = `<span>${total} / ${max} pts</span><span>${pct}% (${notees}/${ENTRETIEN_QUESTIONS.length} notées)</span>`;
+}
+
 async function openEntretien(candidatureId) {
   currentEntretienCandidatureId = candidatureId;
   currentEntretienId = null;
-  ["ent-date","ent-presentation","ent-motivation","ent-competences","ent-forces","ent-vigilance","ent-notes"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
-  document.getElementById("ent-recommandation").value = "";
+  entretienReponses = ENTRETIEN_QUESTIONS.map(()=>({note:null, commentaire:""}));
+  ["ent-prenom-nom","ent-age","ent-dispo","ent-notes-generales","ent-verdict-comment"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+  document.getElementById("ent-experience").value = "";
+  document.getElementById("ent-verdict").value = "";
   document.getElementById("ent-meta").textContent = "";
+
+  const cRow = candidatures.find(x=>String(x.id)===String(candidatureId));
+  if(cRow) {
+    document.getElementById("ent-prenom-nom").value = `${cRow.prenom||""} ${cRow.nom||""}`.trim();
+    if(cRow.age) document.getElementById("ent-age").value = cRow.age;
+    if(cRow.disponibilites) document.getElementById("ent-dispo").value = cRow.disponibilites;
+  }
+
   try {
     const rows = await sb(`candidat_entretiens?candidature_id=eq.${candidatureId}&select=*&order=updated_at.desc&limit=1`);
     const e = rows && rows[0];
     if(e) {
       currentEntretienId = e.id;
-      document.getElementById("ent-date").value = e.date_entretien||"";
-      document.getElementById("ent-presentation").value = e.presentation||"";
-      document.getElementById("ent-motivation").value = e.motivation||"";
-      document.getElementById("ent-competences").value = e.competences||"";
-      document.getElementById("ent-forces").value = e.forces||"";
-      document.getElementById("ent-vigilance").value = e.vigilance||"";
-      document.getElementById("ent-recommandation").value = e.recommandation||"";
-      document.getElementById("ent-notes").value = e.notes||"";
+      if(e.prenom_nom) document.getElementById("ent-prenom-nom").value = e.prenom_nom;
+      if(e.age) document.getElementById("ent-age").value = e.age;
+      if(e.disponible_des) document.getElementById("ent-dispo").value = e.disponible_des;
+      document.getElementById("ent-experience").value = e.experience_securite||"";
+      document.getElementById("ent-notes-generales").value = e.notes_generales||"";
+      document.getElementById("ent-verdict-comment").value = e.verdict_commentaire||"";
+      document.getElementById("ent-verdict").value = e.verdict||"";
+      if(Array.isArray(e.reponses) && e.reponses.length) {
+        entretienReponses = ENTRETIEN_QUESTIONS.map((_,i)=> e.reponses[i] || {note:null, commentaire:""});
+      }
       document.getElementById("ent-meta").textContent = `Dernière mise à jour par ${e.interviewer||"—"} le ${new Date(e.updated_at).toLocaleDateString("fr-FR")}`;
     }
   } catch(err) { console.warn("openEntretien load error:", err.message); }
+
+  renderEntretienQuestions();
   document.getElementById("entretien-modal")?.classList.add("show");
 }
 function closeEntretien() {
@@ -3115,15 +3230,15 @@ async function enregistrerEntretien() {
   if(!currentEntretienCandidatureId) return;
   const payload = {
     candidature_id: currentEntretienCandidatureId,
-    date_entretien: document.getElementById("ent-date").value||null,
     interviewer: identityLabel(),
-    presentation: document.getElementById("ent-presentation").value.trim()||null,
-    motivation: document.getElementById("ent-motivation").value.trim()||null,
-    competences: document.getElementById("ent-competences").value.trim()||null,
-    forces: document.getElementById("ent-forces").value.trim()||null,
-    vigilance: document.getElementById("ent-vigilance").value.trim()||null,
-    recommandation: document.getElementById("ent-recommandation").value||null,
-    notes: document.getElementById("ent-notes").value.trim()||null,
+    prenom_nom: document.getElementById("ent-prenom-nom").value.trim()||null,
+    age: parseInt(document.getElementById("ent-age").value)||null,
+    disponible_des: document.getElementById("ent-dispo").value.trim()||null,
+    experience_securite: document.getElementById("ent-experience").value||null,
+    notes_generales: document.getElementById("ent-notes-generales").value.trim()||null,
+    reponses: entretienReponses,
+    verdict_commentaire: document.getElementById("ent-verdict-comment").value.trim()||null,
+    verdict: document.getElementById("ent-verdict").value||null,
     updated_at: new Date().toISOString(),
   };
   try {
