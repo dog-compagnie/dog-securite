@@ -3051,10 +3051,15 @@ function renderChatThread(elId, msgs) {
 }
 
 async function loadCandidatMessages(candidatureId) {
+  const el = document.getElementById("cand-chat-thread");
+  if(el) el.innerHTML = '<div class="empty"><p>Chargement…</p></div>';
   try {
     const msgs = await sb(`candidat_messages?candidature_id=eq.${candidatureId}&select=*&order=created_at.asc`);
     renderChatThread("cand-chat-thread", msgs||[]);
-  } catch(e) { console.warn("loadCandidatMessages error:", e.message); }
+  } catch(e) {
+    console.warn("loadCandidatMessages error:", e.message);
+    if(el) el.innerHTML = '<div class="empty"><p>⚠ Erreur de chargement. Réessayez.</p></div>';
+  }
 }
 async function sendCandidatMessage() {
   const inp = document.getElementById("cand-chat-input");
@@ -3063,10 +3068,11 @@ async function sendCandidatMessage() {
   const inputRow = document.getElementById("cand-chat-input-row");
   if(inputRow && inputRow.style.display==="none") { toast("La messagerie est fermée pour cette candidature.","#E74C3C"); return; }
   try {
-    await fetch(SB_URL+"/rest/v1/candidat_messages", {
+    const r = await fetch(SB_URL+"/rest/v1/candidat_messages", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
       body: JSON.stringify({candidature_id:currentCompte.candidature_id, auteur:((currentCompte.prenom||"")+" "+(currentCompte.nom||"")).trim()||"Candidat", is_staff:false, message:texte})
     });
+    if(!r.ok) throw new Error(await r.text());
     try {
       const rows = await sb(`candidatures?id=eq.${currentCompte.candidature_id}&select=msg_count`);
       const cur = (rows && rows[0] && rows[0].msg_count) || 0;
@@ -3075,7 +3081,7 @@ async function sendCandidatMessage() {
     inp.value="";
     loadCandidatMessages(currentCompte.candidature_id);
     sendDiscordWebhook("💬 Nouveau message de candidature", `**${((currentCompte.prenom||"")+" "+(currentCompte.nom||"")).trim()||"Candidat"}** a écrit :\n"${texte}"`, 0x7289DA);
-  } catch(e) { toast("Erreur lors de l'envoi du message","#E74C3C"); }
+  } catch(e) { toast("Erreur lors de l'envoi du message : "+e.message,"#E74C3C"); }
 }
 
 // ─── MESSAGERIE CÔTÉ STAFF (Responsable/PDG) ────────────────────────
@@ -3091,10 +3097,15 @@ async function openCandChat(candidatureId) {
   updateNotifBadges();
 }
 async function loadStaffChat(candidatureId) {
+  const el = document.getElementById("staff-chat-thread");
+  if(el) el.innerHTML = '<div class="empty"><p>Chargement…</p></div>';
   try {
     const msgs = await sb(`candidat_messages?candidature_id=eq.${candidatureId}&select=*&order=created_at.asc`);
     renderChatThread("staff-chat-thread", msgs||[]);
-  } catch(e) { console.warn("loadStaffChat error:", e.message); }
+  } catch(e) {
+    console.warn("loadStaffChat error:", e.message);
+    if(el) el.innerHTML = '<div class="empty"><p>⚠ Erreur de chargement. Réessayez.</p></div>';
+  }
 }
 function closeCandChat() {
   document.getElementById("cand-chat-modal")?.classList.remove("show");
@@ -3106,13 +3117,14 @@ async function sendStaffMessage() {
   const texte = inp.value.trim();
   if(!texte || !currentCandChatId) return;
   try {
-    await fetch(SB_URL+"/rest/v1/candidat_messages", {
+    const r = await fetch(SB_URL+"/rest/v1/candidat_messages", {
       method:"POST", headers:{...H,"Prefer":"return=minimal"}, mode:"cors",
       body: JSON.stringify({candidature_id:currentCandChatId, auteur:identityLabel(), auteur_role:specialRoleLabel(), is_staff:true, message:texte})
     });
+    if(!r.ok) throw new Error(await r.text());
     inp.value="";
     loadStaffChat(currentCandChatId);
-  } catch(e) { toast("Erreur lors de l'envoi du message","#E74C3C"); }
+  } catch(e) { toast("Erreur lors de l'envoi du message : "+e.message,"#E74C3C"); }
 }
 
 // ─── QUESTIONNAIRE D'ENTRETIEN (Responsable/PDG — jamais exposé au candidat) ──
