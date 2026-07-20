@@ -935,6 +935,7 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
       <button class="btn btn-sm btn-ghost" id="doc-tab-avertissement" onclick="setDocTab('avertissement')">⚠️ Avertissement</button>
       <button class="btn btn-sm btn-ghost" id="doc-tab-licenciement" onclick="setDocTab('licenciement')">🚫 Licenciement</button>
       <button class="btn btn-sm btn-ghost" id="doc-tab-courrier" onclick="setDocTab('courrier')">✉️ Courrier Sécurité</button>
+      <button class="btn btn-sm btn-ghost" id="doc-tab-courrier_dg" onclick="setDocTab('courrier_dg')" style="display:none;">🏛️ Courrier Direction Générale</button>
     </div>
 
     <div class="card doc-subform" id="doc-form-convocation" style="max-width:760px;">
@@ -1027,6 +1028,26 @@ tbody tr:hover{background:rgba(41,128,185,0.03);}
           <button class="btn btn-ghost" onclick="resetDocForm('courrier')">Réinitialiser</button>
           <button class="btn btn-success" onclick="enregistrerDoc('courrier')">💾 Enregistrer</button>
           <button class="btn btn-primary" onclick="apercuDoc('courrier')">👁 Aperçu (JPG)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card doc-subform" id="doc-form-courrier_dg" style="max-width:760px;display:none;">
+      <div class="card-hdr"><div class="card-hdr-title">🏛️ Nouveau — Courrier — Direction Générale</div></div>
+      <div class="card-body">
+        <div class="field-row-2">
+          <div class="field"><label>Référence (auto)</label><input id="cdg-ref" disabled></div>
+          <div class="field"><label>Destinataire *</label><input id="cdg-destinataire" placeholder="Nom / Organisation…"></div>
+        </div>
+        <div class="field-row-2">
+          <div class="field"><label>Date *</label><input id="cdg-date" type="date"></div>
+          <div class="field"><label>Objet *</label><input id="cdg-objet" placeholder="Objet du courrier…"></div>
+        </div>
+        <div class="field"><label>Corps du courrier</label><textarea id="cdg-corps" rows="10" placeholder="Rédigez votre courrier ici…"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="resetDocForm('courrier_dg')">Réinitialiser</button>
+          <button class="btn btn-success" onclick="enregistrerDoc('courrier_dg')">💾 Enregistrer</button>
+          <button class="btn btn-primary" onclick="apercuDoc('courrier_dg')">👁 Aperçu (JPG)</button>
         </div>
       </div>
     </div>
@@ -1571,19 +1592,19 @@ function closeEvalDetail() {
 }
 
 // ─── DOCUMENTS OFFICIELS (Convocation/Avertissement, Licenciement, Courrier, Rapport d'incident) ──
-const DOC_PREFIX = {convocation:"CON", avertissement:"AVT", licenciement:"LIC", courrier:"COU", incident:"INC"};
-const DOC_LABEL  = {convocation:"Convocation", avertissement:"Avertissement", licenciement:"Licenciement", courrier:"Courrier Sécurité", incident:"Rapport d'incident"};
-const DOC_COLOR  = {convocation:"#8B5A2B", avertissement:"#8B5A2B", licenciement:"#7B1F1F", courrier:"#1F4E7B", incident:"#7B1F1F"};
+const DOC_PREFIX = {convocation:"CON", avertissement:"AVT", licenciement:"LIC", courrier:"COU", courrier_dg:"CDG", incident:"INC"};
+const DOC_LABEL  = {convocation:"Convocation", avertissement:"Avertissement", licenciement:"Licenciement", courrier:"Courrier Sécurité", courrier_dg:"Courrier — Direction Générale", incident:"Rapport d'incident"};
+const DOC_COLOR  = {convocation:"#8B5A2B", avertissement:"#8B5A2B", licenciement:"#7B1F1F", courrier:"#1F4E7B", courrier_dg:"#7D3C98", incident:"#7B1F1F"};
 
 function prefillDocDates() {
-  ["conv-date","avt-date","lic-date","cou-date","inc-date"].forEach(id=>{
+  ["conv-date","avt-date","lic-date","cou-date","cdg-date","inc-date"].forEach(id=>{
     const el = document.getElementById(id);
     if(el && !el.value) el.value = todayISO();
   });
 }
 
 function setDocTab(tab) {
-  ["convocation","avertissement","licenciement","courrier"].forEach(t=>{
+  ["convocation","avertissement","licenciement","courrier","courrier_dg"].forEach(t=>{
     const form = document.getElementById("doc-form-"+t);
     if(form) form.style.display = t===tab ? "block" : "none";
     const btn = document.getElementById("doc-tab-"+t);
@@ -1597,6 +1618,7 @@ function resetDocForm(kind) {
     avertissement: ["avt-agent","avt-objet","avt-faits","avt-comportement","avt-consequences"],
     licenciement: ["lic-agent","lic-date-effet","lic-motif","lic-obs"],
     courrier: ["cou-agent","cou-objet","cou-corps"],
+    courrier_dg: ["cdg-destinataire","cdg-objet","cdg-corps"],
     incident: ["inc-heure","inc-lieu","inc-agents","inc-personnes","inc-desc","inc-mesures"],
   }[kind]||[];
   ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
@@ -1645,6 +1667,15 @@ function collectDocData(kind) {
       corps: document.getElementById("cou-corps").value.trim(),
     };
   }
+  if(kind==="courrier_dg") {
+    return {
+      type:"courrier_dg",
+      destinataire: document.getElementById("cdg-destinataire").value.trim(),
+      dateDoc: document.getElementById("cdg-date").value || todayISO(),
+      objet: document.getElementById("cdg-objet").value.trim(),
+      corps: document.getElementById("cdg-corps").value.trim(),
+    };
+  }
   if(kind==="incident") {
     return {
       type:"incident",
@@ -1663,6 +1694,10 @@ function collectDocData(kind) {
 function validateDoc(data) {
   if(data.type==="incident") {
     if(!data.dateDoc||!data.heure||!data.lieu||!data.desc) return "Merci de remplir les champs obligatoires (date, heure, lieu, description).";
+    return null;
+  }
+  if(data.type==="courrier_dg") {
+    if(!data.destinataire||!data.dateDoc||!data.objet) return "Merci d'indiquer le destinataire, la date et l'objet.";
     return null;
   }
   if(!data.agentNom||!data.dateDoc) return "Merci d'indiquer le nom de l'agent et la date du document.";
@@ -1722,6 +1757,12 @@ function buildDocInner(data, ref, overrideAuteur, overrideRole) {
       {l:"Date du document", v:dateDocFr}, {l:"Objet", v:data.objet||"—"},
     ];
     bodyHTML = `<p>${(data.corps||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
+  } else if(type==="courrier_dg") {
+    infoRows = [
+      {l:"Référence", v:ref}, {l:"Destinataire", v:data.destinataire||"—"},
+      {l:"Date", v:dateDocFr}, {l:"Objet", v:data.objet||"—"},
+    ];
+    bodyHTML = `<div class="doc-section-title">CORPS DU COURRIER</div><p>${(data.corps||"(non renseigné)").replace(/\n/g,"<br>")}</p>`;
   } else {
     infoRows = [
       {l:"Référence", v:ref}, {l:"Date de l'incident", v:dateDocFr},
@@ -1738,6 +1779,25 @@ function buildDocInner(data, ref, overrideAuteur, overrideRole) {
   const initials = auteur.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,3);
   const escHtml = s => (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const infoHTML = infoRows.map(r=>`<div><div class="lbl">${escHtml(r.l)}</div><div class="val">${escHtml(r.v)}</div></div>`).join("");
+
+  const isDG = type==="courrier_dg";
+  const brandSubtitle = isDG ? "DIRECTION GÉNÉRALE" : "SERVICE SÉCURITÉ";
+  const brandColor = isDG ? "#7D3C98" : "#2980B9";
+  const orgLine = isDG ? "Dog Compagnie" : "Sécurité";
+  const stampOrgLine = isDG ? "Direction Générale" : "Service Sécurité";
+  const headerHTML = isDG
+    ? `<div class="doc-hdr" style="justify-content:flex-start;gap:16px;">
+        <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_COMPAGNIE_B64}">
+        <div style="text-align:left;">
+          <h1 style="margin:0;font-size:22px;">Dog Compagnie</h1>
+          <div class="sub" style="color:${brandColor};letter-spacing:0.1em;margin-top:2px;">${brandSubtitle}</div>
+        </div>
+      </div>`
+    : `<div class="doc-hdr">
+        <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_SECURITE_B64}">
+        <div class="doc-hdr-center"><h1>Dog Compagnie</h1><div class="sub">${brandSubtitle}</div></div>
+        <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_COMPAGNIE_B64}">
+      </div>`;
 
   const css = `
 .doc-page{width:700px;background:#fff;padding:40px 40px 60px;font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;}
@@ -1762,11 +1822,7 @@ function buildDocInner(data, ref, overrideAuteur, overrideRole) {
 `;
 
   const html = `<div class="doc-page">
-  <div class="doc-hdr">
-    <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_SECURITE_B64}">
-    <div class="doc-hdr-center"><h1>Dog Compagnie</h1><div class="sub">SERVICE SÉCURITÉ</div></div>
-    <img class="doc-logo-img" src="data:image/jpeg;base64,${LOGO_COMPAGNIE_B64}">
-  </div>
+  ${headerHTML}
   <div class="doc-titlebar">${escHtml(title)}</div>
   <div class="doc-infobox">${infoHTML}</div>
   <div class="doc-body">${bodyHTML}</div>
@@ -1776,14 +1832,14 @@ function buildDocInner(data, ref, overrideAuteur, overrideRole) {
       <div class="doc-signature">
         <div style="border-top:1px solid #999;width:160px;margin-top:24px;"></div>
         <div class="name">${escHtml(auteur)}</div>
-        <div class="role">${escHtml(auteurRole)}<br>Sécurité</div>
+        <div class="role">${escHtml(auteurRole)}${isDG?" —":""}<br>${orgLine}</div>
       </div>
     </div>
     <div class="doc-stamp">
       <div class="company">DOG<br>COMPAGNIE</div>
-      <div style="font-size:8px;margin:2px 0;">Service Sécurité</div>
+      <div style="font-size:8px;margin:2px 0;">${stampOrgLine}</div>
       <div class="initials">${escHtml(initials)}</div>
-      <div style="font-size:8px;">${escHtml(auteurRole.toUpperCase())}<br>SÉCURITÉ</div>
+      <div style="font-size:8px;">${isDG ? escHtml(auteurRole.toUpperCase()) : escHtml(auteurRole.toUpperCase())+"<br>SÉCURITÉ"}</div>
     </div>
   </div>
   <div class="doc-refline">${escHtml(ref)}<br>Dog Compagnie — Document officiel</div>
@@ -1809,6 +1865,7 @@ async function renderDocAsJPEG(data, ref, overrideAuteur, overrideRole) {
 }
 
 async function enregistrerDoc(formKind) {
+  if(formKind==="courrier_dg" && role!=="pdg" && role!=="admin") { toast("Réservé au PDG et à l'Admin.","#E74C3C"); return; }
   const data = collectDocData(formKind);
   const err = validateDoc(data);
   if(err) { toast(err,"#E74C3C"); return; }
@@ -1853,6 +1910,7 @@ function downloadDocPreview() {
 }
 
 async function apercuDoc(formKind) {
+  if(formKind==="courrier_dg" && role!=="pdg" && role!=="admin") { toast("Réservé au PDG et à l'Admin.","#E74C3C"); return; }
   const data = collectDocData(formKind);
   const err = validateDoc(data);
   if(err) { toast(err,"#E74C3C"); return; }
@@ -2198,7 +2256,9 @@ async function loadDocHistory(scope) {
   try {
     const rows = await sb("documents?select=*&order=created_at.desc&limit=100");
     if(scope==="rh") {
-      renderDocHistory("doc-rh-history", (rows||[]).filter(r=>["convocation","avertissement","licenciement","courrier"].includes(r.type)));
+      const rhTypes = ["convocation","avertissement","licenciement","courrier"];
+      if(role==="pdg"||role==="admin") rhTypes.push("courrier_dg");
+      renderDocHistory("doc-rh-history", (rows||[]).filter(r=>rhTypes.includes(r.type)));
     } else {
       const filtered = (rows||[]).filter(r=>r.type==="incident" && (role!=="agent" || r.auteur===identityLabel()));
       renderDocHistory("doc-incident-history", filtered);
@@ -2514,7 +2574,11 @@ function goPage(pageId) {
   if(pageId==="hierarchie")        loadHierarchie();
   if(pageId==="journal")           { loadJournal(); refreshMaintStatusBadge(); loadDiscordWebhook(); }
   if(pageId==="evaluations")       loadEvaluations();
-  if(pageId==="doc-rh")            { setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh"); }
+  if(pageId==="doc-rh")            {
+    setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh");
+    const cdgTab = document.getElementById("doc-tab-courrier_dg");
+    if(cdgTab) cdgTab.style.display = (role==="pdg"||role==="admin") ? "inline-flex" : "none";
+  }
   if(pageId==="devis")             initDevisPage();
   if(pageId==="incident")          { prefillDocDates(); loadDocHistory("incident"); }
   if(pageId==="mon-service")       initServicePage();
