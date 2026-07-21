@@ -1276,6 +1276,11 @@ function specialRoleLabel() {
   if(role==="pdg" && currentCompte && currentCompte.adjoint) return "PDG Adjoint";
   return ROLE_LABELS[role]||role;
 }
+function isComiteDirection() {
+  if(role==="admin" || role==="pdg") return true;
+  if(role==="responsable" && currentCompte && currentCompte.general) return true;
+  return false;
+}
 function currentActeurLabel() {
   return specialRoleLabel() + (currentAgent ? " — "+currentAgent.prenom+" "+currentAgent.nom : "");
 }
@@ -1871,7 +1876,7 @@ async function renderDocAsJPEG(data, ref, overrideAuteur, overrideRole) {
 }
 
 async function enregistrerDoc(formKind) {
-  if(formKind==="courrier_dg" && role!=="pdg" && role!=="admin") { toast("Réservé au PDG et à l'Admin.","#E74C3C"); return; }
+  if(formKind==="courrier_dg" && !isComiteDirection()) { toast("Réservé au Comité de Direction (PDG, PDG Adjoint, Responsable Général, Admin).","#E74C3C"); return; }
   const data = collectDocData(formKind);
   const err = validateDoc(data);
   if(err) { toast(err,"#E74C3C"); return; }
@@ -1916,7 +1921,7 @@ function downloadDocPreview() {
 }
 
 async function apercuDoc(formKind) {
-  if(formKind==="courrier_dg" && role!=="pdg" && role!=="admin") { toast("Réservé au PDG et à l'Admin.","#E74C3C"); return; }
+  if(formKind==="courrier_dg" && !isComiteDirection()) { toast("Réservé au Comité de Direction (PDG, PDG Adjoint, Responsable Général, Admin).","#E74C3C"); return; }
   const data = collectDocData(formKind);
   const err = validateDoc(data);
   if(err) { toast(err,"#E74C3C"); return; }
@@ -2263,7 +2268,7 @@ async function loadDocHistory(scope) {
     const rows = await sb("documents?select=*&order=created_at.desc&limit=100");
     if(scope==="rh") {
       const rhTypes = ["convocation","avertissement","licenciement","courrier"];
-      if(role==="pdg"||role==="admin") rhTypes.push("courrier_dg");
+      if(isComiteDirection()) rhTypes.push("courrier_dg");
       renderDocHistory("doc-rh-history", (rows||[]).filter(r=>rhTypes.includes(r.type)));
     } else {
       const filtered = (rows||[]).filter(r=>r.type==="incident" && (role!=="agent" || r.auteur===identityLabel()));
@@ -2583,7 +2588,7 @@ function goPage(pageId) {
   if(pageId==="doc-rh")            {
     setDocTab("convocation"); prefillDocDates(); loadDocHistory("rh");
     const cdgTab = document.getElementById("doc-tab-courrier_dg");
-    if(cdgTab) cdgTab.style.display = (role==="pdg"||role==="admin") ? "inline-flex" : "none";
+    if(cdgTab) cdgTab.style.display = isComiteDirection() ? "inline-flex" : "none";
   }
   if(pageId==="devis")             initDevisPage();
   if(pageId==="incident")          { prefillDocDates(); loadDocHistory("incident"); }
